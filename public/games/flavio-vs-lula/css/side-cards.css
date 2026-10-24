@@ -1,0 +1,240 @@
+/**
+ * side-cards.css
+ * Flavio vs Lula overlay — Glossy blue / red score cards.
+ */
+
+/* ==========================================
+   SIDE CARDS — glossy blue / red scoreboards
+   ========================================== */
+#sideCards {
+  position: absolute;
+  top: 11.2cqw;
+  left: 3cqw;
+  right: 3cqw;
+  display: flex;
+  gap: 3cqw;
+  align-items: flex-start;
+}
+
+.side-card {
+  --side-color: #888;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 1.3cqw 1.8cqw 1.2cqw;
+  border-radius: 1.6cqw;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35cqw;
+  overflow: hidden;
+  background: var(--side-color);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--side-color) 72%, white) 0%,
+    var(--side-color) 42%,
+    color-mix(in srgb, var(--side-color) 55%, black) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0.8cqw 2cqw rgba(0, 0, 0, 0.45);
+  transition: box-shadow 0.4s ease;
+}
+
+/* Party flag as a faint texture behind the gradient */
+.side-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.16;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+#side-card-0::before {
+  background-image: url("img/Bandeira_Brasil.jpeg");
+}
+#side-card-1::before {
+  background-image: url("img/Bandeira_PT.jpg");
+}
+
+.side-card > * {
+  position: relative;
+}
+
+/* Side currently ahead gets a glow */
+.side-card.leading {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 0 0.25cqw var(--gold-soft),
+    0 0 2.6cqw var(--side-color);
+}
+
+.side-top {
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+  min-height: 3.8cqw;
+}
+
+.side-number {
+  font-size: 2.4cqw;
+  font-weight: 900;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.lead-badge {
+  visibility: hidden;
+  background: var(--gold-soft);
+  color: #6b5200;
+  font-size: 0.95cqw;
+  font-weight: 800;
+  letter-spacing: 0.08cqw;
+  padding: 0.25cqw 0.9cqw;
+  border-radius: 0.5cqw;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.side-card.leading .lead-badge {
+  visibility: visible;
+}
+
+.side-name {
+  margin-left: auto;
+  font-size: 1.7cqw;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.side-avatar {
+  width: 3.6cqw;
+  height: 3.6cqw;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 0.2cqw solid #fff;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8cqw;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.side-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The big counter */
+.side-score {
+  font-size: 11cqw;
+  font-weight: 900;
+  line-height: 1.02;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0.4cqw 1cqw rgba(0, 0, 0, 0.35);
+}
+
+.side-score.bump {
+  animation: bump 0.25s ease;
+}
+
+@keyframes bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.side-label {
+  text-align: center;
+  font-size: 1.05cqw;
+  font-weight: 800;
+  letter-spacing: 0.35cqw;
+  opacity: 0.92;
+}
+
+.side-bar {
+  height: 0.7cqw;
+  margin-top: 0.4cqw;
+  border-radius: 1cqw;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.side-bar i {
+  display: block;
+  height: 100%;
+  width: 50%;
+  border-radius: 1cqw;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.side-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1cqw;
+  margin-top: 0.3cqw;
+}
+
+.side-share {
+  font-size: 1.9cqw;
+  font-weight: 800;
+}
+
+.side-rounds {
+  font-size: 1.1cqw;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.side-presents {
+  font-size: 1.05cqw;
+  font-weight: 800;
+  padding: 0.3cqw 0.8cqw;
+  border-radius: 0.5cqw;
+  background: rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.side-gifts {
+  display: flex;
+  align-items: center;
+  gap: 1.2cqw;
+  margin-top: 0.4cqw;
+  padding-top: 0.5cqw;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.gift-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 2.1cqw;
+  line-height: 1.05;
+}
+
+.gift-chip small {
+  font-size: 0.95cqw;
+  font-weight: 800;
+  color: var(--gold-soft);
+}
+
+.side-vote {
+  margin-left: auto;
+  font-size: 1cqw;
+  font-weight: 700;
+  opacity: 0.8;
+}

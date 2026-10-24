@@ -1,0 +1,70 @@
+/**
+ * base.css
+ * Flavio vs Lula overlay — Reset, design tokens, canvas layer, HUD and the 4:3 stage.
+ * Everything inside #stage is sized in `cqw` (1cqw = 1% of the stage width).
+ */
+
+/* ==========================================
+   DESIGN TOKENS
+   ========================================== */
+:root {
+  --gold: #ffd700; /* titles, timer, coin values */
+  --gold-soft: #ffe45c; /* "NA FRENTE" badge, leader ring */
+  --neutral-side: #5b6b8c; /* leader pill while tied (keep in sync with NEUTRAL_COLOR) */
+}
+
+/* ==========================================
+   RESET & BASE
+   ========================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+  color: #fff;
+}
+
+/* ==========================================
+   CANVAS — floating "+N" popups (above the stage)
+   ========================================== */
+#duelCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* ==========================================
+   HUD + STAGE
+   ========================================== */
+#hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#stage {
+  position: relative;
+  container-type: inline-size;
+  width: min(100vw, calc(100vh * 4 / 3));
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #11346b 0%, rgba(17, 52, 107, 0) 60%),
+    linear-gradient(180deg, #0b2250 0%, #04122e 100%);
+}

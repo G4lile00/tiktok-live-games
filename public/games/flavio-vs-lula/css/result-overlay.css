@@ -1,0 +1,87 @@
+/**
+ * result-overlay.css
+ * Flavio vs Lula overlay — End-of-round result screen.
+ */
+
+/* ==========================================
+   RESULT OVERLAY
+   ========================================== */
+.winner-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 8, 24, 0.82);
+  animation: fadeInPlain 0.5s ease;
+}
+
+.winner-overlay.hidden {
+  display: none;
+}
+
+.winner-content {
+  text-align: center;
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.winner-badge {
+  width: 14cqw;
+  height: 14cqw;
+  margin: 0 auto 1.6cqw;
+  border-radius: 50%;
+  border: 0.5cqw solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7cqw;
+  font-weight: 900;
+  overflow: hidden;
+  box-shadow: 0 0 4cqw rgba(255, 255, 255, 0.35);
+}
+
+.winner-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.winner-name {
+  font-size: 4.6cqw;
+  font-weight: 900;
+  text-shadow: 0 0.4cqw 1cqw rgba(0, 0, 0, 0.6);
+  margin-bottom: 0.8cqw;
+}
+
+.winner-score {
+  font-size: 2.6cqw;
+  font-weight: 700;
+  margin-bottom: 1cqw;
+  font-variant-numeric: tabular-nums;
+}
+
+.winner-supporters {
+  font-size: 1.7cqw;
+  opacity: 0.85;
+}
+
+@keyframes fadeInPlain {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

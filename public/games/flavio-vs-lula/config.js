@@ -125,6 +125,16 @@ const CONFIG = {
 	pointsPerDiamond: 1,
 
 	/**
+	 * Gift multiplier: the points of a gift are multiplied by this value BEFORE
+	 * being added to the side's score.
+	 *   points = diamonds × pointsPerDiamond × combo (repeatCount) × giftMultiplier
+	 * Examples: 1 = normal · 2 = gifts count double · 0.5 = half · 0 = gifts do not score.
+	 * Chat votes (`chatPoints`) are NOT affected. The result is rounded to an integer
+	 * (minimum 1 point while the multiplier is above 0).
+	 */
+	giftMultiplier: 1,
+
+	/**
 	 * Gifts that are NOT in `giftTiers`:
 	 * false = ignored (only the chosen gifts score).
 	 * true  = scored for a side picked by giftId parity.
@@ -143,6 +153,16 @@ const CONFIG = {
 	// ==========================================
 	// ROUND PHASES & TIMING (ms)
 	// ==========================================
+	/**
+	 * Phase a round starts in.
+	 * "playing" = the round is live right away (default).
+	 * "waiting" = lobby; the first valid gift starts the countdown.
+	 */
+	initialPhase: "playing",
+
+	/** Log gifts / chat votes in the browser console (F12). */
+	debug: true,
+
 	phases: {
 		/** WAITING — lobby, first valid gift starts the countdown */
 		waiting: { duration: Infinity },
@@ -157,12 +177,28 @@ const CONFIG = {
 	},
 
 	/**
-	 * Convert gift diamond value to points.
-	 * @param {number} giftValue Diamonds of ONE unit of the gift.
+	 * Multiplier applied to gift points (invalid or negative values fall back to 1).
 	 * @returns {number}
 	 */
-	giftToPoints(giftValue) {
-		return Math.max(1, Math.round((giftValue || 1) * this.pointsPerDiamond));
+	getGiftMultiplier() {
+		const multiplier = Number(this.giftMultiplier);
+		return Number.isFinite(multiplier) && multiplier >= 0 ? multiplier : 1;
+	},
+
+	/**
+	 * Convert a gift into the points that will be added to the score:
+	 * (diamonds × pointsPerDiamond × combo) × giftMultiplier.
+	 * @param {number} giftValue   Diamonds of ONE unit of the gift.
+	 * @param {number} [repeatCount=1] Combo size (how many units were sent).
+	 * @returns {number} Integer points; 0 only when giftMultiplier is 0.
+	 */
+	giftToPoints(giftValue, repeatCount = 1) {
+		const multiplier = this.getGiftMultiplier();
+		if (multiplier === 0) return 0;
+
+		const unitPoints = Math.max(1, Math.round((giftValue || 1) * this.pointsPerDiamond));
+		const units = Math.max(1, Number(repeatCount) || 1);
+		return Math.max(1, Math.round(unitPoints * units * multiplier));
 	},
 
 	/**

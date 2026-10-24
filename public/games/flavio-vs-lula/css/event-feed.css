@@ -1,0 +1,47 @@
+/**
+ * event-feed.css
+ * Flavio vs Lula overlay — Last gifts / votes at the bottom.
+ */
+
+/* ==========================================
+   EVENT FEED — bottom center
+   ========================================== */
+#eventFeed {
+  position: absolute;
+  bottom: 1cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56cqw;
+  max-height: 6.6cqw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3cqw;
+}
+
+.feed-item {
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.35cqw 1cqw;
+  border-radius: 0.6cqw;
+  border-left: 0.35cqw solid #ffd700;
+  font-size: 1.15cqw;
+  animation: fadeIn 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed-item.chat {
+  border-left-color: #4af;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(0.8cqw);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

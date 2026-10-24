@@ -21,7 +21,19 @@ public/
 ├── lib/tiktok-bridge.js   # Client SDK: Socket.io → game event bridge
 └── games/
     ├── horse-racing/      # Canvas + DOM — gift-powered horse race (5 lanes)
-    └── flavio-vs-lula/    # Canvas + DOM — 2-sided gift duel, live score counters (pt-BR)
+    └── flavio-vs-lula/    # Canvas + DOM — 2-sided gift duel, urna scoreboard (pt-BR)
+        ├── index.html     # Stage markup; loads css/*, config.js, then js/main.js (ES module)
+        ├── config.js      # ALL gameplay settings: sides, gifts, giftMultiplier, phases, labels
+        ├── css/           # base · phase-banner · status-bar · side-cards · urn · event-feed · result-overlay
+        └── js/
+            ├── main.js          # Bootstrap + render loop
+            ├── constants.js     # Fixed values (phases, easing, urn timings…)
+            ├── types.js         # JSDoc typedefs
+            ├── view-state.js    # On-screen-only values (eased counters, gift counters)
+            ├── engine/          # duel-engine.js — pure state machine (no DOM)
+            ├── bridge/          # events.js — TikTokBridge → engine
+            ├── lib/             # format.js, logger.js
+            └── ui/              # dom, popups, side-cards, status-bar, phase-banner, urns, hand-svg, event-feed, result-overlay
 ```
 
 ## Tech Stack

@@ -33,7 +33,7 @@ Gift duel between two sides, with a live score counter on top of each one. Gifts
 
 - **2 Sides**: 🔵 Flávio Bolsonaro, 🔴 Lula (names, colors and optional photo in `config.js`)
 - **Gift → Side Mapping**: 4 gift tiers (1, 5, 10, 99 coins), one gift per side in each tier — both sides always have equally priced gifts. Gifts outside the map are ignored
-- **Scoring**: points = gift diamonds × `pointsPerDiamond` (default 1). Optional chat votes (`chatPoints`) and early-win `targetScore`
+- **Scoring**: points = gift diamonds × `pointsPerDiamond` (default 1) × combo × `giftMultiplier` (default 1; applied before the points are added; chat votes are not affected). Optional chat votes (`chatPoints`) and early-win `targetScore`
 - **Rounds**: Waiting → Countdown (10s) → Playing (3 min) → Finished → Cooldown, then scores reset. Rounds won are kept on screen; ties are supported
 - **Canvas 2D + DOM HUD**: Big counters, tug bar with live percentage, floating `+points`, event feed, result screen with top 3 supporters
 - **Language**: overlay texts are pt-BR and editable in `config.js` (`labels`)

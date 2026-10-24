@@ -1,0 +1,66 @@
+/**
+ * status-bar.css
+ * Flavio vs Lula overlay — TOTAL | DIFERENÇA | "NN NA FRENTE" bar.
+ */
+
+/* ==========================================
+   STATUS BAR — TOTAL | DIFERENÇA | NN NA FRENTE
+   ========================================== */
+.status-bar {
+  position: absolute;
+  top: 5.3cqw;
+  left: 3cqw;
+  right: 3cqw;
+  height: 4.7cqw;
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+  padding: 0.5cqw;
+  border-radius: 1.1cqw;
+  background: rgba(2, 10, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stat {
+  flex: 0 0 17cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+
+.stat-label {
+  font-size: 0.95cqw;
+  font-weight: 700;
+  letter-spacing: 0.15cqw;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-value {
+  font-size: 2.3cqw;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.leader-pill {
+  --side-color: var(--neutral-side);
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8cqw;
+  font-size: 2.2cqw;
+  font-weight: 800;
+  letter-spacing: 0.1cqw;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--side-color) 70%, white) 0%,
+    var(--side-color) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: background 0.4s ease;
+}

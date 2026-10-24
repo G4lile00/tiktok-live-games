@@ -1,0 +1,304 @@
+/**
+ * urn.css
+ * Flavio vs Lula overlay — Voting machines (urnas), keypad and the typing hand.
+ */
+
+/* ==========================================
+   URNAS — voting machines under each card
+   ========================================== */
+#urns {
+  position: absolute;
+  top: 42cqw;
+  left: 3cqw;
+  right: 3cqw;
+  height: 24cqw;
+  display: flex;
+  gap: 3cqw;
+}
+
+.urn {
+  --side-color: #888;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden; /* the arm is cut by the bottom edge */
+}
+
+.urn-top {
+  height: 3cqw;
+  margin: 0 2%;
+  clip-path: polygon(5% 0, 95% 0, 100% 100%, 0 100%);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.28) 0 0.22cqw,
+      transparent 0.22cqw 0.7cqw
+    ),
+    linear-gradient(180deg, #f7f4ec, #d3cec3);
+}
+
+.urn-body {
+  position: relative;
+  height: calc(100% - 3cqw);
+  padding: 1.6cqw 1.5cqw 0;
+  border-radius: 0.8cqw 0.8cqw 0 0;
+  background: linear-gradient(180deg, #ece8de, #b7b2a6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 1.6cqw;
+}
+
+.urn-brand {
+  position: absolute;
+  top: 0.35cqw;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.7cqw;
+  letter-spacing: 0.25cqw;
+  color: #7b776c;
+  font-weight: 700;
+}
+
+/* Screen */
+.urn-screen {
+  align-self: start;
+  height: 15cqw;
+  padding: 0.9cqw;
+  border-radius: 0.8cqw;
+  background: #1b2027;
+  box-shadow: inset 0 0 0.6cqw #000;
+}
+
+.urn-screen-inner {
+  position: relative;
+  height: 100%;
+  border-radius: 0.4cqw;
+  background: #fff;
+  color: #222;
+  overflow: hidden;
+}
+
+.vote-screen {
+  position: absolute;
+  inset: 0;
+  padding: 0.9cqw 1cqw;
+}
+
+.vs-head {
+  font-size: 0.85cqw;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: 0.05cqw;
+}
+
+.vs-digits {
+  display: flex;
+  gap: 0.5cqw;
+  margin-top: 1cqw;
+}
+
+.vs-digit {
+  width: 2.6cqw;
+  height: 3.2cqw;
+  border: 0.15cqw solid #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2cqw;
+  font-weight: 800;
+}
+
+.vs-num {
+  margin-top: 0.6cqw;
+  font-size: 0.8cqw;
+  color: #666;
+}
+
+.vs-foot {
+  position: absolute;
+  left: 1cqw;
+  right: 1cqw;
+  bottom: 0.7cqw;
+  padding-top: 0.4cqw;
+  border-top: 0.12cqw solid #333;
+  font-size: 0.75cqw;
+  font-weight: 700;
+  color: #333;
+}
+
+/* Candidate card (appears when the vote is ready to be confirmed) */
+.cand {
+  position: absolute;
+  top: 0.9cqw;
+  right: 1cqw;
+  width: 6.4cqw;
+  height: 7.4cqw;
+  border: 0.15cqw solid var(--side-color);
+  background: #fff;
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.cand img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cand b {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.1cqw 0.5cqw;
+  background: var(--side-color);
+  color: #fff;
+  font-size: 1.3cqw;
+  font-weight: 900;
+}
+
+.urn[data-state="confirm"] .cand {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* "FIM" screen */
+.end-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6cqw;
+  background: #0a0d10;
+}
+
+.urn[data-state="done"] .vote-screen {
+  display: none;
+}
+
+.urn[data-state="done"] .end-screen {
+  display: flex;
+}
+
+.end-title {
+  font-size: 5.2cqw;
+  font-weight: 900;
+  letter-spacing: 0.2cqw;
+  color: #fff;
+}
+
+.end-sub {
+  font-size: 0.9cqw;
+  font-weight: 700;
+  color: #5cff8a;
+}
+
+/* Keypad */
+.urn-keypad {
+  align-self: start;
+  padding: 1cqw;
+  border-radius: 0.8cqw;
+  background: #15171a;
+  box-shadow: inset 0 0 0.6cqw #000;
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6cqw;
+}
+
+.key {
+  height: 2.3cqw;
+  border-radius: 0.4cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3cqw;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #5b5f67, #3a3d43);
+  box-shadow: 0 0.15cqw 0 #0a0a0a;
+  transition:
+    background 0.08s ease,
+    transform 0.08s ease;
+}
+
+.key[data-key="0"] {
+  grid-column: 2;
+}
+
+.key.pressed {
+  background: #fff;
+  color: #000;
+  transform: translateY(0.15cqw) scale(0.93);
+}
+
+.keys-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 0.5cqw;
+  margin-top: 1cqw;
+}
+
+.act {
+  height: 2.3cqw;
+  border-radius: 0.4cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7cqw;
+  font-weight: 800;
+  color: #222;
+  transition:
+    transform 0.08s ease,
+    filter 0.08s ease;
+}
+
+.act.blank {
+  background: #fafafa;
+}
+.act.fix {
+  background: #f4a93a;
+}
+.act.confirm {
+  background: #3fbf5a;
+  color: #04200c;
+}
+
+.act.pressed {
+  transform: translateY(0.15cqw) scale(0.93);
+  filter: brightness(1.4);
+}
+
+/* Typing hand (arm sleeve takes the side color) */
+.urn-hand {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 7.5cqw;
+  z-index: 5;
+  pointer-events: none;
+  transition:
+    left 0.16s ease,
+    top 0.16s ease,
+    transform 0.1s ease;
+  filter: drop-shadow(0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.35));
+}
+
+.urn-hand svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.urn-hand.tap {
+  transform: translateY(0.4cqw) scale(0.96);
+}

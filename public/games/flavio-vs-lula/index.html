@@ -4,7 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flávio x Lula - TikTok Live Games</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/phase-banner.css" />
+    <link rel="stylesheet" href="css/status-bar.css" />
+    <link rel="stylesheet" href="css/side-cards.css" />
+    <link rel="stylesheet" href="css/urn.css" />
+    <link rel="stylesheet" href="css/event-feed.css" />
+    <link rel="stylesheet" href="css/result-overlay.css" />
   </head>
   <body>
     <!-- Popups "+N" (Canvas) — drawn on top of the stage -->
@@ -58,7 +64,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/lib/tiktok-bridge.js"></script>
     <script src="config.js"></script>
-    <script src="duel-engine.js"></script>
-    <script src="game.js"></script>
+    <!-- Game code (ES modules): js/main.js → engine/, bridge/, ui/ -->
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>
