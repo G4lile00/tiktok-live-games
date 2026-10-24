@@ -1,0 +1,392 @@
+/**
+ * style.css
+ * Flavio vs Lula OBS overlay styles.
+ * Transparent background — only duel elements are visible in OBS.
+ */
+
+/* ==========================================
+   RESET & BASE
+   ========================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+  color: #fff;
+}
+
+/* ==========================================
+   CANVAS — fills entire viewport
+   ========================================== */
+#duelCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* ==========================================
+   HUD — sits on top of canvas
+   ========================================== */
+#hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* ==========================================
+   PHASE BANNER — top center
+   ========================================== */
+.phase-banner {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  padding: 10px 30px;
+  border-radius: 12px;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+
+.game-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #ffd700;
+  padding-right: 14px;
+  border-right: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+#phaseTimer {
+  font-variant-numeric: tabular-nums;
+  color: #ffd700;
+  min-width: 56px;
+}
+
+.phase-banner.countdown {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.05);
+  }
+}
+
+/* ==========================================
+   SIDE CARDS — one per side, counter on top
+   ========================================== */
+#sideCards {
+  position: absolute;
+  top: 90px;
+  left: 30px;
+  right: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.side-card {
+  --side-color: #888;
+  width: 430px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  border-radius: 18px;
+  border-top: 8px solid var(--side-color);
+  padding: 16px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  transition:
+    box-shadow 0.4s ease,
+    transform 0.4s ease;
+}
+
+/* Side currently ahead gets a glow */
+.side-card.leading {
+  box-shadow:
+    0 0 0 2px var(--side-color),
+    0 0 34px var(--side-color);
+  transform: translateY(-4px);
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.side-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--side-color);
+  border: 3px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.side-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.side-name {
+  font-size: 30px;
+  font-weight: 800;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The big counter */
+.side-score {
+  font-size: 104px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow:
+    0 0 24px var(--side-color),
+    0 4px 10px rgba(0, 0, 0, 0.6);
+}
+
+.side-score.bump {
+  animation: bump 0.25s ease;
+}
+
+@keyframes bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.side-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.side-meta .side-share {
+  color: var(--side-color);
+  filter: brightness(1.5);
+  font-size: 22px;
+}
+
+.side-gifts {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.gift-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 34px;
+  line-height: 1.1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+}
+
+.gift-chip small {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.side-vote {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ==========================================
+   EVENT FEED — bottom center
+   ========================================== */
+#eventFeed {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 440px;
+  max-height: 230px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feed-item {
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border-left: 4px solid #ffd700;
+  font-size: 14px;
+  animation: fadeIn 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed-item.chat {
+  border-left-color: #4af;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================
+   RESULT OVERLAY
+   ========================================== */
+.winner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  animation: fadeInPlain 0.5s ease;
+}
+
+.winner-overlay.hidden {
+  display: none;
+}
+
+.winner-content {
+  text-align: center;
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.winner-badge {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  border: 6px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 80px;
+  font-weight: 900;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(255, 255, 255, 0.35);
+}
+
+.winner-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.winner-name {
+  font-size: 54px;
+  font-weight: 900;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  margin-bottom: 8px;
+}
+
+.winner-score {
+  font-size: 30px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.winner-supporters {
+  font-size: 20px;
+  opacity: 0.85;
+}
+
+@keyframes fadeInPlain {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/* Flávio (lado esquerdo) → bandeira do Brasil */
+#side-card-0 {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
+    url("img/Bandeira_Brasil.jpeg") center / cover no-repeat;
+}
+
+/* Lula (lado direito) → bandeira do PT */
+#side-card-1 {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
+    url("img/Bandeira_PT.jpg") center / cover no-repeat;
+}

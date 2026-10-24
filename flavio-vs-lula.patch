@@ -1,0 +1,1425 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index fe5cafe..6504500 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -20,7 +20,8 @@ public/
+ ├── js/dashboard.js        # Game selection, URL generation, clipboard
+ ├── lib/tiktok-bridge.js   # Client SDK: Socket.io → game event bridge
+ └── games/
+-    └── horse-racing/      # Canvas + DOM — gift-powered horse race (5 lanes)
++    ├── horse-racing/      # Canvas + DOM — gift-powered horse race (5 lanes)
++    └── flavio-vs-lula/    # Canvas + DOM — 2-sided gift duel, live score counters (pt-BR)
+ ```
+ 
+ ## Tech Stack
+diff --git a/README.md b/README.md
+index bfdacaa..aa45541 100644
+--- a/README.md
++++ b/README.md
+@@ -27,6 +27,17 @@ Gift-powered horse race with 5 country lanes. Viewers send gifts to move their c
+ - **Supporter Tracking**: Top 3 contributors shown on winner overlay
+ - **Canvas 2D + DOM HUD**: Progress bars, event feed, phase banners, winner celebration
+ 
++### Flávio x Lula ⚔️
++
++Gift duel between two sides, with a live score counter on top of each one. Gifts mapped to a side give it points; the side with more points when the round ends wins.
++
++- **2 Sides**: 🔵 Flávio Bolsonaro, 🔴 Lula (names, colors and optional photo in `config.js`)
++- **Gift → Side Mapping**: 4 gift tiers (1, 5, 10, 99 coins), one gift per side in each tier — both sides always have equally priced gifts. Gifts outside the map are ignored
++- **Scoring**: points = gift diamonds × `pointsPerDiamond` (default 1). Optional chat votes (`chatPoints`) and early-win `targetScore`
++- **Rounds**: Waiting → Countdown (10s) → Playing (3 min) → Finished → Cooldown, then scores reset. Rounds won are kept on screen; ties are supported
++- **Canvas 2D + DOM HUD**: Big counters, tug bar with live percentage, floating `+points`, event feed, result screen with top 3 supporters
++- **Language**: overlay texts are pt-BR and editable in `config.js` (`labels`)
++
+ ## Quick Start
+ 
+ ### Prerequisites
+@@ -77,11 +88,17 @@ tiktok-live-games/
+ │   ├── js/dashboard.js                   # Game selection & URL generation
+ │   ├── lib/tiktok-bridge.js              # Client SDK: Socket.io → game event bridge
+ │   └── games/
+-│       └── horse-racing/                 # Canvas + DOM horse race game
++│       ├── horse-racing/                 # Canvas + DOM horse race game
++│       │   ├── index.html                # Overlay entry point
++│       │   ├── game.js                   # Canvas renderer + bridge wiring
++│       │   ├── race-engine.js            # Pure race state machine
++│       │   ├── config.js                 # Lanes, gift tiers, gift→lane mapping
++│       │   └── style.css                 # OBS overlay styles
++│       └── flavio-vs-lula/               # Canvas + DOM two-sided gift duel
+ │           ├── index.html                # Overlay entry point
+ │           ├── game.js                   # Canvas renderer + bridge wiring
+-│           ├── race-engine.js            # Pure race state machine
+-│           ├── config.js                 # Lanes, gift tiers, gift→lane mapping
++│           ├── duel-engine.js            # Pure duel state machine
++│           ├── config.js                 # Sides, gift tiers, gift→side mapping, texts
+ │           └── style.css                 # OBS overlay styles
+ └── package.json
+ ```
+diff --git a/public/games/flavio-vs-lula/config.js b/public/games/flavio-vs-lula/config.js
+new file mode 100644
+index 0000000..73decd1
+--- /dev/null
++++ b/public/games/flavio-vs-lula/config.js
+@@ -0,0 +1,234 @@
++/**
++ * config.js
++ * Flavio vs Lula (gift duel) game configuration.
++ *
++ * HOW IT WORKS:
++ * - Two sides face each other. Each side has a live score counter on top.
++ * - Each side is powered by its own gifts (one gift per side in every tier,
++ *   so both sides have equally priced gifts available).
++ * - Gift value (diamonds) becomes points for the side the gift is mapped to.
++ * - A round lasts `phases.playing.duration`; highest score wins the round.
++ *
++ * CUSTOMIZING:
++ * - Use debug.html to discover the exact gift names from your TikTok stream.
++ * - Edit `giftTiers` so the gifts match what your audience can send.
++ * - Edit `labels` to change any text shown on the overlay (pt-BR by default).
++ * - Optional: set `photo` on a side to show an image instead of the initial.
++ *
++ * @module games/flavio-vs-lula/config
++ */
++
++const CONFIG = {
++	// ==========================================
++	// SIDES (exactly 2: index 0 = left, index 1 = right)
++	// ==========================================
++	sides: [
++		{
++			id: 0,
++			name: "Flávio Bolsonaro",
++			short: "Flávio",
++			color: "#1f6bff",
++			/** Optional image URL for the avatar. Empty = show the initial letter. */
++			photo: "",
++			/** Chat words that vote for this side (accents/case are ignored). */
++			aliases: ["1", "flavio", "flavio bolsonaro", "bolsonaro"],
++		},
++		{
++			id: 1,
++			name: "Lula",
++			short: "Lula",
++			color: "#e5222f",
++			photo: "",
++			aliases: ["2", "lula"],
++		},
++	],
++
++	// ==========================================
++	// TEXTS (pt-BR) — change freely
++	// ==========================================
++	labels: {
++		title: "DUELO DE PRESENTES",
++		waiting: "Mande um presente para começar!",
++		countdown: "A rodada começa em",
++		playing: "VALENDO! Mande presentes!",
++		finished: "FIM DA RODADA!",
++		cooldown: "Próxima rodada em instantes...",
++		tie: "EMPATE!",
++		wins: "venceu a rodada!",
++		points: "pts",
++		rounds: "Rodadas",
++		voteHint: (n) => `Digite ${n} no chat`,
++		topSupporters: "Maiores apoiadores:",
++	},
++
++	// ==========================================
++	// GIFT → SIDE MAPPING (by value tier)
++	// Each tier: equally priced gifts, one per side.
++	// Array index = side index (0 = left, 1 = right).
++	// ==========================================
++	giftTiers: [
++		{
++			coins: 1,
++			gifts: [
++				{ name: "Rose", emoji: "🌹" },
++				{ name: "Finger Heart", emoji: "🫰" },
++			],
++		},
++		{
++			coins: 5,
++			gifts: [
++				{ name: "Hand Heart", emoji: "💕" },
++				{ name: "Little Crown", emoji: "👑" },
++			],
++		},
++		{
++			coins: 10,
++			gifts: [
++				{ name: "Perfume", emoji: "💐" },
++				{ name: "Doughnut", emoji: "🍩" },
++			],
++		},
++		{
++			coins: 99,
++			gifts: [
++				{ name: "Garland", emoji: "🏵️" },
++				{ name: "Singing Mic", emoji: "🎤" },
++			],
++		},
++	],
++
++	// ==========================================
++	// SCORING
++	// ==========================================
++	/** Points per diamond of a mapped gift (1 gift of 10 diamonds = 10 points). */
++	pointsPerDiamond: 1,
++
++	/**
++	 * Gifts that are NOT in `giftTiers`:
++	 * false = ignored (only the chosen gifts score).
++	 * true  = scored for a side picked by giftId parity.
++	 */
++	countUnmappedGifts: false,
++
++	/** Points given by a chat vote ("1", "2", "lula"...). 0 = chat does not score. */
++	chatPoints: 0,
++
++	/** Optional: first side to reach this score wins the round early. null = off. */
++	targetScore: null,
++
++	/** Show viewers' chat messages / likes in the feed (off: avoids showing random text). */
++	showChatInFeed: false,
++
++	// ==========================================
++	// ROUND PHASES & TIMING (ms)
++	// ==========================================
++	phases: {
++		/** WAITING — lobby, first valid gift starts the countdown */
++		waiting: { duration: Infinity },
++		/** COUNTDOWN — 10s before the round (gifts already count) */
++		countdown: { duration: 10_000 },
++		/** PLAYING — highest score at the end wins */
++		playing: { duration: 180_000 },
++		/** FINISHED — show the result for 8s */
++		finished: { duration: 8_000 },
++		/** COOLDOWN — brief pause, then scores reset */
++		cooldown: { duration: 5_000 },
++	},
++
++	/**
++	 * Convert gift diamond value to points.
++	 * @param {number} giftValue Diamonds of ONE unit of the gift.
++	 * @returns {number}
++	 */
++	giftToPoints(giftValue) {
++		return Math.max(1, Math.round((giftValue || 1) * this.pointsPerDiamond));
++	},
++
++	/**
++	 * Resolve gift → side index.
++	 * Priority: 1) giftName match in tier map, 2) giftId parity (if enabled).
++	 * @returns {number} side index or -1 if the gift does not score
++	 */
++	giftToSide(giftName, giftId) {
++		if (!this._giftNameMap) {
++			this._giftNameMap = {};
++			for (const tier of this.giftTiers) {
++				tier.gifts.forEach((g, idx) => {
++					this._giftNameMap[g.name.toLowerCase()] = idx;
++				});
++			}
++		}
++		const key = (giftName || "").toLowerCase();
++		if (key && this._giftNameMap[key] !== undefined) {
++			return this._giftNameMap[key];
++		}
++		if (this.countUnmappedGifts) {
++			return Math.abs(giftId || 0) % this.sides.length;
++		}
++		return -1;
++	},
++
++	/** Get gift emoji by name (for the feed). */
++	getGiftEmoji(giftName) {
++		if (!this._giftEmojiMap) {
++			this._giftEmojiMap = {};
++			for (const tier of this.giftTiers) {
++				for (const g of tier.gifts) {
++					this._giftEmojiMap[g.name.toLowerCase()] = g.emoji;
++				}
++			}
++		}
++		return this._giftEmojiMap[(giftName || "").toLowerCase()] || "🎁";
++	},
++
++	/**
++	 * Gifts of one side, one per tier (for the on-screen legend).
++	 * @param {number} sideIdx
++	 * @returns {{emoji: string, name: string, coins: number}[]}
++	 */
++	getSideGifts(sideIdx) {
++		return this.giftTiers
++			.map((tier) => {
++				const g = tier.gifts[sideIdx];
++				return g ? { emoji: g.emoji, name: g.name, coins: tier.coins } : null;
++			})
++			.filter(Boolean);
++	},
++
++	/**
++	 * Chat-based side selection (case and accents ignored).
++	 * @returns {number} side index or -1 if no match
++	 */
++	chatToSide(comment) {
++		const text = this._normalize(comment);
++		if (!text) return -1;
++
++		if (!this._chatAliasMap) {
++			this._chatAliasMap = {};
++			for (const side of this.sides) {
++				this._chatAliasMap[this._normalize(side.name)] = side.id;
++				for (const alias of side.aliases || []) {
++					this._chatAliasMap[this._normalize(alias)] = side.id;
++				}
++			}
++		}
++		return this._chatAliasMap[text] ?? -1;
++	},
++
++	/** @private lowercase + trim + strip accents */
++	_normalize(str) {
++		return (str || "")
++			.toString()
++			.normalize("NFD")
++			.replace(/[̀-ͯ]/g, "")
++			.toLowerCase()
++			.trim();
++	},
++};
++
++// Make available in both module and browser global contexts
++if (typeof module !== "undefined" && module.exports) {
++	module.exports = CONFIG;
++} else {
++	window.DUEL_CONFIG = CONFIG;
++}
+diff --git a/public/games/flavio-vs-lula/duel-engine.js b/public/games/flavio-vs-lula/duel-engine.js
+new file mode 100644
+index 0000000..1ab0638
+--- /dev/null
++++ b/public/games/flavio-vs-lula/duel-engine.js
+@@ -0,0 +1,276 @@
++/**
++ * duel-engine.js
++ * Pure state machine for the Flavio vs Lula gift duel.
++ * NO DOM, NO Canvas — just data in, state out.
++ * The renderer (game.js) reads state and draws.
++ *
++ * Phases: WAITING → COUNTDOWN → PLAYING → FINISHED → COOLDOWN → WAITING
++ *
++ * @module games/flavio-vs-lula/duel-engine
++ */
++
++class DuelEngine {
++	/**
++	 * @param {Object} config - DUEL_CONFIG from config.js
++	 */
++	constructor(config) {
++		this.config = config;
++		this.listeners = {};
++		this.state = null;
++		this.reset();
++	}
++
++	// ==========================================
++	// STATE
++	// ==========================================
++
++	/** Start a fresh round. Round counters and rounds-won survive the reset. */
++	reset() {
++		const prev = this.state;
++		this.state = {
++			phase: "waiting",
++			phaseStartedAt: Date.now(),
++			sides: this.config.sides.map((side) => ({
++				...side,
++				score: 0,
++				supporters: new Map(), // uniqueId → { nickname, totalContrib }
++			})),
++			winner: null, // winning side object, or null
++			isTie: false,
++			roundCount: prev?.roundCount || 0,
++			roundsWon: prev?.roundsWon || this.config.sides.map(() => 0),
++			recentEvents: [], // last N events for HUD feed
++		};
++		this._emit("phaseChange", { phase: "waiting" });
++	}
++
++	// ==========================================
++	// PHASE TRANSITIONS
++	// ==========================================
++
++	/** @private */
++	_setPhase(nextPhase) {
++		this.state.phase = nextPhase;
++		this.state.phaseStartedAt = Date.now();
++		this._emit("phaseChange", { phase: nextPhase });
++	}
++
++	/** Time elapsed in current phase (ms) */
++	phaseElapsed() {
++		return Date.now() - this.state.phaseStartedAt;
++	}
++
++	/** Time remaining in current phase (ms), or Infinity */
++	phaseRemaining() {
++		const dur = this.config.phases[this.state.phase]?.duration ?? Infinity;
++		if (dur === Infinity) return Infinity;
++		return Math.max(0, dur - this.phaseElapsed());
++	}
++
++	/** Total score of both sides. */
++	totalScore() {
++		return this.state.sides.reduce((sum, s) => sum + s.score, 0);
++	}
++
++	/**
++	 * Share of the left side (index 0) from 0 to 1.
++	 * Returns 0.5 while nobody has scored.
++	 */
++	getShare() {
++		const total = this.totalScore();
++		if (total === 0) return 0.5;
++		return this.state.sides[0].score / total;
++	}
++
++	// ==========================================
++	// TICK — call from requestAnimationFrame
++	// ==========================================
++
++	/**
++	 * Main update tick. Handles phase timeouts / auto-transitions.
++	 * Returns current state for rendering.
++	 */
++	tick() {
++		const { phase } = this.state;
++		const remaining = this.phaseRemaining();
++
++		if (phase === "countdown" && remaining <= 0) {
++			this._setPhase("playing");
++		} else if (phase === "playing" && remaining <= 0) {
++			this._finishRound();
++		} else if (phase === "finished" && remaining <= 0) {
++			this._setPhase("cooldown");
++		} else if (phase === "cooldown" && remaining <= 0) {
++			this.state.roundCount++;
++			this.reset();
++		}
++
++		return this.state;
++	}
++
++	// ==========================================
++	// EVENT HANDLERS (called by game.js)
++	// ==========================================
++
++	/**
++	 * Process a gift event. Only mapped gifts score (see config.countUnmappedGifts).
++	 * @param {{giftId: number, giftName: string, giftValue: number, user: {uniqueId: string, nickname: string}}} data
++	 */
++	handleGift(data) {
++		const sideIdx = this.config.giftToSide(data.giftName, data.giftId);
++		if (sideIdx < 0) return; // gift is not part of the game
++
++		// First valid gift in the lobby starts the countdown (and counts)
++		if (this.state.phase === "waiting") {
++			this._setPhase("countdown");
++		}
++
++		const { phase } = this.state;
++		if (phase === "countdown" || phase === "playing") {
++			const points = this.config.giftToPoints(data.giftValue);
++			this._addScore(sideIdx, points, data.user, {
++				giftName: data.giftName,
++				giftEmoji: this.config.getGiftEmoji(data.giftName),
++			});
++
++			if (phase === "playing") this._checkTarget();
++		}
++	}
++
++	/**
++	 * Process a chat event. Chat votes only score when config.chatPoints > 0.
++	 * @param {{user: {uniqueId: string, nickname: string}, comment: string}} data
++	 */
++	handleChat(data) {
++		const points = this.config.chatPoints || 0;
++		if (points <= 0) {
++			if (this.config.showChatInFeed) {
++				this._addRecentEvent({
++					type: "chat",
++					nickname: data.user.nickname,
++					text: data.comment || "",
++				});
++			}
++			return;
++		}
++
++		const sideIdx = this.config.chatToSide(data.comment);
++		if (sideIdx < 0) return;
++
++		if (this.state.phase === "waiting") this._setPhase("countdown");
++
++		const { phase } = this.state;
++		if (phase === "countdown" || phase === "playing") {
++			this._addScore(sideIdx, points, data.user, {
++				giftName: null,
++				giftEmoji: "💬",
++				isVote: true,
++			});
++			if (phase === "playing") this._checkTarget();
++		}
++	}
++
++	// ==========================================
++	// INTERNAL
++	// ==========================================
++
++	/**
++	 * Add points to a side and track the supporter's contribution.
++	 * @private
++	 */
++	_addScore(sideIdx, points, user, meta) {
++		const side = this.state.sides[sideIdx];
++		if (!side) return;
++
++		side.score += points;
++
++		const uid = user?.uniqueId || "anonymous";
++		const existing = side.supporters.get(uid);
++		if (existing) {
++			existing.totalContrib += points;
++		} else {
++			side.supporters.set(uid, {
++				nickname: user?.nickname || uid,
++				totalContrib: points,
++			});
++		}
++
++		this._addRecentEvent({
++			type: meta.isVote ? "vote" : "gift",
++			nickname: user?.nickname || uid,
++			sideIdx,
++			sideShort: side.short,
++			color: side.color,
++			points,
++			giftName: meta.giftName || "",
++			giftEmoji: meta.giftEmoji,
++		});
++
++		this._emit("scoreAdd", { sideIdx, points, side, user });
++	}
++
++	/** @private — early finish when targetScore is configured */
++	_checkTarget() {
++		const target = this.config.targetScore;
++		if (!target) return;
++		if (this.state.sides.some((s) => s.score >= target)) {
++			this._finishRound();
++		}
++	}
++
++	/** @private — decide the winner (or a tie) and enter FINISHED */
++	_finishRound() {
++		if (this.state.phase === "finished") return;
++
++		const [a, b] = this.state.sides;
++		if (a.score === b.score) {
++			this.state.winner = null;
++			this.state.isTie = true;
++		} else {
++			const winner = a.score > b.score ? a : b;
++			this.state.winner = winner;
++			this.state.isTie = false;
++			this.state.roundsWon[winner.id]++;
++		}
++
++		this._setPhase("finished");
++		this._emit("roundFinished", {
++			winner: this.state.winner,
++			isTie: this.state.isTie,
++		});
++	}
++
++	/** @private — keep last 20 events for HUD feed */
++	_addRecentEvent(evt) {
++		evt.timestamp = Date.now();
++		this.state.recentEvents.unshift(evt);
++		if (this.state.recentEvents.length > 20) {
++			this.state.recentEvents.length = 20;
++		}
++	}
++
++	// ==========================================
++	// EVENT EMITTER (simple)
++	// ==========================================
++
++	on(event, fn) {
++		(this.listeners[event] ??= []).push(fn);
++	}
++
++	_emit(event, data) {
++		(this.listeners[event] || []).forEach((fn) => {
++			try {
++				fn(data);
++			} catch (e) {
++				console.error(`[DuelEngine] Error in ${event} listener:`, e);
++			}
++		});
++	}
++}
++
++// Export for browser global
++if (typeof module !== "undefined" && module.exports) {
++	module.exports = DuelEngine;
++} else {
++	window.DuelEngine = DuelEngine;
++}
+diff --git a/public/games/flavio-vs-lula/game.js b/public/games/flavio-vs-lula/game.js
+new file mode 100644
+index 0000000..9dfa40c
+--- /dev/null
++++ b/public/games/flavio-vs-lula/game.js
+@@ -0,0 +1,374 @@
++/**
++ * game.js
++ * Flavio vs Lula — Canvas renderer + TikTokBridge wiring.
++ * Reads state from DuelEngine, draws the tug bar + floating points on Canvas,
++ * updates DOM HUD elements (score counters, gift legend, event feed, result).
++ *
++ * @module games/flavio-vs-lula/game
++ */
++
++(() => {
++	// ==========================================
++	// SETUP
++	// ==========================================
++	const config = window.DUEL_CONFIG;
++	const engine = new DuelEngine(config);
++	const L = config.labels;
++
++	const canvas = document.getElementById("duelCanvas");
++	const ctx = canvas.getContext("2d");
++
++	// DOM HUD elements
++	const phaseBanner = document.getElementById("phaseBanner");
++	const gameTitle = document.getElementById("gameTitle");
++	const phaseText = document.getElementById("phaseText");
++	const phaseTimer = document.getElementById("phaseTimer");
++	const sideCardsDiv = document.getElementById("sideCards");
++	const eventFeedDiv = document.getElementById("eventFeed");
++	const winnerOverlay = document.getElementById("winnerOverlay");
++	const winnerBadge = document.getElementById("winnerBadge");
++	const winnerName = document.getElementById("winnerName");
++	const winnerScore = document.getElementById("winnerScore");
++	const winnerSupporters = document.getElementById("winnerSupporters");
++
++	gameTitle.textContent = L.title;
++
++	// ==========================================
++	// CANVAS SIZING
++	// ==========================================
++	function resize() {
++		canvas.width = window.innerWidth;
++		canvas.height = window.innerHeight;
++	}
++	window.addEventListener("resize", resize);
++	resize();
++
++	// ==========================================
++	// BRIDGE → ENGINE WIRING
++	// ==========================================
++	TikTokBridge.on("gift", (data) => engine.handleGift(data));
++	TikTokBridge.on("chat", (data) => engine.handleChat(data));
++
++	// ==========================================
++	// ANIMATION STATE (purely visual)
++	// ==========================================
++	/** Score shown on screen (eases toward the real score) */
++	const shownScore = config.sides.map(() => 0);
++	/** Share of the left side shown on the bar (eases toward the real share) */
++	let shownShare = 0.5;
++	/** Floating "+N" popups drawn on the canvas */
++	const popups = [];
++
++	// ==========================================
++	// BUILD SIDE CARDS (counter on top of each side)
++	// ==========================================
++	function buildSideCards() {
++		sideCardsDiv.innerHTML = "";
++		config.sides.forEach((side) => {
++			const el = document.createElement("div");
++			el.className = "side-card";
++			el.id = `side-card-${side.id}`;
++			el.style.setProperty("--side-color", side.color);
++
++			const avatar = side.photo
++				? `<img src="${side.photo}" alt="" />`
++				: side.short.charAt(0).toUpperCase();
++
++			const gifts = config
++				.getSideGifts(side.id)
++				.map((g) => `<span class="gift-chip">${g.emoji}<small>${g.coins}</small></span>`)
++				.join("");
++
++			el.innerHTML =
++				`<div class="side-head">` +
++				`<div class="side-avatar">${avatar}</div>` +
++				`<div class="side-name">${side.name}</div>` +
++				`</div>` +
++				`<div class="side-score" id="score-${side.id}">0</div>` +
++				`<div class="side-meta">` +
++				`<span class="side-share" id="share-${side.id}">50%</span>` +
++				`<span class="side-rounds" id="rounds-${side.id}">${L.rounds}: 0</span>` +
++				`</div>` +
++				`<div class="side-gifts">${gifts}</div>` +
++				(config.chatPoints > 0
++					? `<div class="side-vote">${L.voteHint(side.id + 1)}</div>`
++					: "");
++			sideCardsDiv.appendChild(el);
++		});
++	}
++	buildSideCards();
++
++	// Popup on every score event
++	engine.on("scoreAdd", ({ sideIdx, points, side }) => {
++		const W = canvas.width;
++		const jitter = (Math.random() - 0.5) * 120;
++		popups.push({
++			x: (sideIdx === 0 ? 245 : W - 245) + jitter,
++			y: canvas.height * 0.66 - 30,
++			vy: -1.4 - Math.random() * 0.8,
++			text: `+${points}`,
++			color: side.color,
++			life: 1,
++		});
++
++		// Bump the counter
++		const scoreEl = document.getElementById(`score-${sideIdx}`);
++		if (scoreEl) {
++			scoreEl.classList.remove("bump");
++			void scoreEl.offsetWidth; // restart CSS animation
++			scoreEl.classList.add("bump");
++		}
++	});
++
++	// Rebuild cards when a new round starts (keeps DOM clean)
++	engine.on("phaseChange", ({ phase }) => {
++		if (phase === "waiting") {
++			shownScore.fill(0);
++			shownShare = 0.5;
++			popups.length = 0;
++		}
++	});
++
++	// ==========================================
++	// RENDER LOOP
++	// ==========================================
++	let lastFeedKey = "";
++
++	function frame() {
++		const state = engine.tick();
++		animate(state);
++		drawScene(state);
++		updateHUD(state);
++		requestAnimationFrame(frame);
++	}
++
++	/** Ease the visual values toward the real ones. */
++	function animate(state) {
++		state.sides.forEach((side, i) => {
++			const diff = side.score - shownScore[i];
++			shownScore[i] = Math.abs(diff) < 0.5 ? side.score : shownScore[i] + diff * 0.15;
++		});
++		shownShare += (engine.getShare() - shownShare) * 0.08;
++	}
++
++	// ==========================================
++	// CANVAS DRAWING
++	// ==========================================
++	function drawScene(state) {
++		const W = canvas.width;
++		const H = canvas.height;
++		ctx.clearRect(0, 0, W, H);
++
++		const [left, right] = state.sides;
++		const barX = W * 0.1;
++		const barW = W * 0.8;
++		const barH = 44;
++		const barY = H * 0.66;
++		const splitX = barX + barW * shownShare;
++
++		// Track background
++		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
++		ctx.beginPath();
++		ctx.roundRect(barX - 8, barY - 8, barW + 16, barH + 16, 16);
++		ctx.fill();
++
++		// Side fills (clipped to the rounded bar)
++		ctx.save();
++		ctx.beginPath();
++		ctx.roundRect(barX, barY, barW, barH, 10);
++		ctx.clip();
++		ctx.fillStyle = left.color;
++		ctx.fillRect(barX, barY, splitX - barX, barH);
++		ctx.fillStyle = right.color;
++		ctx.fillRect(splitX, barY, barX + barW - splitX, barH);
++
++		// Soft highlight
++		const hl = ctx.createLinearGradient(0, barY, 0, barY + barH);
++		hl.addColorStop(0, "rgba(255,255,255,0.25)");
++		hl.addColorStop(1, "rgba(255,255,255,0)");
++		ctx.fillStyle = hl;
++		ctx.fillRect(barX, barY, barW, barH);
++		ctx.restore();
++
++		// Center reference (50%)
++		ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
++		ctx.lineWidth = 2;
++		ctx.setLineDash([6, 6]);
++		ctx.beginPath();
++		ctx.moveTo(barX + barW / 2, barY - 18);
++		ctx.lineTo(barX + barW / 2, barY + barH + 18);
++		ctx.stroke();
++		ctx.setLineDash([]);
++
++		// Marker at the split point
++		ctx.beginPath();
++		ctx.arc(splitX, barY + barH / 2, 30, 0, Math.PI * 2);
++		ctx.fillStyle = "#fff";
++		ctx.fill();
++		ctx.lineWidth = 4;
++		ctx.strokeStyle = "rgba(0,0,0,0.55)";
++		ctx.stroke();
++		ctx.fillStyle = "#111";
++		ctx.font = "900 22px sans-serif";
++		ctx.textAlign = "center";
++		ctx.textBaseline = "middle";
++		ctx.fillText("VS", splitX, barY + barH / 2 + 1);
++
++		// Percent labels above each end
++		const leftPct = Math.round(shownShare * 100);
++		ctx.font = "900 40px sans-serif";
++		ctx.textBaseline = "alphabetic";
++		ctx.lineWidth = 6;
++		ctx.strokeStyle = "rgba(0,0,0,0.65)";
++		ctx.textAlign = "left";
++		ctx.strokeText(`${leftPct}%`, barX, barY - 20);
++		ctx.fillStyle = left.color;
++		ctx.fillText(`${leftPct}%`, barX, barY - 20);
++		ctx.textAlign = "right";
++		ctx.strokeText(`${100 - leftPct}%`, barX + barW, barY - 20);
++		ctx.fillStyle = right.color;
++		ctx.fillText(`${100 - leftPct}%`, barX + barW, barY - 20);
++
++		// Floating "+N" popups
++		ctx.textAlign = "center";
++		ctx.textBaseline = "middle";
++		for (let i = popups.length - 1; i >= 0; i--) {
++			const p = popups[i];
++			p.y += p.vy;
++			p.life -= 0.016;
++			if (p.life <= 0) {
++				popups.splice(i, 1);
++				continue;
++			}
++			ctx.globalAlpha = Math.min(1, p.life * 1.5);
++			ctx.font = "900 44px sans-serif";
++			ctx.lineWidth = 7;
++			ctx.strokeStyle = "rgba(0,0,0,0.75)";
++			ctx.strokeText(p.text, p.x, p.y);
++			ctx.fillStyle = p.color;
++			ctx.fillText(p.text, p.x, p.y);
++		}
++		ctx.globalAlpha = 1;
++	}
++
++	// ==========================================
++	// HUD UPDATE
++	// ==========================================
++	function formatTime(ms) {
++		const total = Math.ceil(ms / 1000);
++		const m = Math.floor(total / 60);
++		const s = total % 60;
++		return m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
++	}
++
++	function updateHUD(state) {
++		// Phase text + timer
++		phaseText.textContent = L[state.phase] || state.phase;
++
++		const remaining = engine.phaseRemaining();
++		if (remaining !== Infinity && remaining > 0 && state.phase !== "cooldown") {
++			phaseTimer.textContent = formatTime(remaining);
++		} else {
++			phaseTimer.textContent = "";
++		}
++
++		phaseBanner.classList.toggle("countdown", state.phase === "countdown");
++
++		// Counters, shares, rounds won, leader glow
++		const [a, b] = state.sides;
++		state.sides.forEach((side, i) => {
++			const scoreEl = document.getElementById(`score-${side.id}`);
++			const shareEl = document.getElementById(`share-${side.id}`);
++			const roundsEl = document.getElementById(`rounds-${side.id}`);
++			const cardEl = document.getElementById(`side-card-${side.id}`);
++
++			if (scoreEl) scoreEl.textContent = Math.round(shownScore[i]).toLocaleString("pt-BR");
++			if (shareEl) {
++				const leftPct = Math.round(shownShare * 100);
++				shareEl.textContent = `${i === 0 ? leftPct : 100 - leftPct}%`;
++			}
++			if (roundsEl) roundsEl.textContent = `${L.rounds}: ${state.roundsWon[side.id]}`;
++			if (cardEl) {
++				const isLeading = a.score !== b.score && side.score > state.sides[1 - i].score;
++				cardEl.classList.toggle("leading", isLeading);
++			}
++		});
++
++		// Event feed (re-render only when something new arrived)
++		const newest = state.recentEvents[0];
++		const feedKey = newest ? `${newest.timestamp}-${state.recentEvents.length}` : "";
++		if (feedKey !== lastFeedKey) {
++			lastFeedKey = feedKey;
++			renderFeed(state.recentEvents.slice(0, 8));
++		}
++
++		// Result overlay
++		if (state.phase === "finished") {
++			showResult(state);
++		} else {
++			winnerOverlay.classList.add("hidden");
++		}
++	}
++
++	/** Feed uses textContent only, so nicknames can never inject HTML. */
++	function renderFeed(events) {
++		eventFeedDiv.innerHTML = "";
++		events.forEach((evt) => {
++			const el = document.createElement("div");
++			el.className = "feed-item " + evt.type;
++			if (evt.type === "gift" || evt.type === "vote") {
++				el.style.borderLeftColor = evt.color;
++				el.textContent = `${evt.giftEmoji} ${evt.nickname} → ${evt.sideShort} (+${evt.points} ${L.points})`;
++			} else if (evt.type === "chat") {
++				el.textContent = `💬 ${evt.nickname}: ${evt.text}`;
++			}
++			eventFeedDiv.appendChild(el);
++		});
++	}
++
++	function showResult(state) {
++		winnerOverlay.classList.remove("hidden");
++
++		const [a, b] = state.sides;
++		winnerScore.textContent = `${a.short} ${a.score.toLocaleString("pt-BR")} × ${b.score.toLocaleString("pt-BR")} ${b.short}`;
++
++		if (state.isTie || !state.winner) {
++			winnerBadge.textContent = "🤝";
++			winnerBadge.style.background = "#555";
++			winnerName.textContent = L.tie;
++			winnerName.style.color = "#fff";
++			winnerSupporters.textContent = "";
++			return;
++		}
++
++		const w = state.winner;
++		winnerBadge.innerHTML = "";
++		if (w.photo) {
++			const img = document.createElement("img");
++			img.src = w.photo;
++			img.alt = "";
++			winnerBadge.appendChild(img);
++		} else {
++			winnerBadge.textContent = w.short.charAt(0).toUpperCase();
++		}
++		winnerBadge.style.background = w.color;
++		winnerName.textContent = `${w.name} ${L.wins}`;
++		winnerName.style.color = w.color;
++
++		// Top 3 supporters of the winning side
++		const supporters = Array.from(w.supporters.values())
++			.sort((x, y) => y.totalContrib - x.totalContrib)
++			.slice(0, 3);
++
++		winnerSupporters.textContent = supporters.length
++			? `${L.topSupporters} ` +
++				supporters.map((s) => `${s.nickname} (${s.totalContrib})`).join(", ")
++			: "";
++	}
++
++	// ==========================================
++	// START
++	// ==========================================
++	requestAnimationFrame(frame);
++	console.log("[FlavioVsLula] Game loaded, waiting for TikTokBridge connection...");
++})();
+diff --git a/public/games/flavio-vs-lula/index.html b/public/games/flavio-vs-lula/index.html
+new file mode 100644
+index 0000000..f79099f
+--- /dev/null
++++ b/public/games/flavio-vs-lula/index.html
+@@ -0,0 +1,48 @@
++<!doctype html>
++<html lang="pt-BR">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>Flávio x Lula - TikTok Live Games</title>
++    <link rel="stylesheet" href="style.css" />
++  </head>
++  <body>
++    <!-- OBS Overlay: transparent background, canvas fills viewport -->
++
++    <!-- Tug bar + floating "+points" (Canvas) -->
++    <canvas id="duelCanvas"></canvas>
++
++    <!-- HUD Overlay (DOM) -->
++    <div id="hud">
++      <!-- Phase Banner -->
++      <div id="phaseBanner" class="phase-banner">
++        <span id="gameTitle" class="game-title"></span>
++        <span id="phaseText"></span>
++        <span id="phaseTimer"></span>
++      </div>
++
++      <!-- Side cards with the score counters (left / right) -->
++      <div id="sideCards"></div>
++
++      <!-- Event Feed (bottom-center) -->
++      <div id="eventFeed"></div>
++
++      <!-- Result Overlay (hidden until the round ends) -->
++      <div id="winnerOverlay" class="winner-overlay hidden">
++        <div class="winner-content">
++          <div id="winnerBadge" class="winner-badge"></div>
++          <div id="winnerName" class="winner-name"></div>
++          <div id="winnerScore" class="winner-score"></div>
++          <div id="winnerSupporters" class="winner-supporters"></div>
++        </div>
++      </div>
++    </div>
++
++    <!-- Dependencies -->
++    <script src="/socket.io/socket.io.js"></script>
++    <script src="/lib/tiktok-bridge.js"></script>
++    <script src="config.js"></script>
++    <script src="duel-engine.js"></script>
++    <script src="game.js"></script>
++  </body>
++</html>
+diff --git a/public/games/flavio-vs-lula/style.css b/public/games/flavio-vs-lula/style.css
+new file mode 100644
+index 0000000..c576182
+--- /dev/null
++++ b/public/games/flavio-vs-lula/style.css
+@@ -0,0 +1,379 @@
++/**
++ * style.css
++ * Flavio vs Lula OBS overlay styles.
++ * Transparent background — only duel elements are visible in OBS.
++ */
++
++/* ==========================================
++   RESET & BASE
++   ========================================== */
++* {
++  margin: 0;
++  padding: 0;
++  box-sizing: border-box;
++}
++
++html,
++body {
++  width: 100%;
++  height: 100%;
++  overflow: hidden;
++  background: transparent;
++  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
++  color: #fff;
++}
++
++/* ==========================================
++   CANVAS — fills entire viewport
++   ========================================== */
++#duelCanvas {
++  position: fixed;
++  top: 0;
++  left: 0;
++  width: 100%;
++  height: 100%;
++  z-index: 1;
++}
++
++/* ==========================================
++   HUD — sits on top of canvas
++   ========================================== */
++#hud {
++  position: fixed;
++  top: 0;
++  left: 0;
++  width: 100%;
++  height: 100%;
++  z-index: 10;
++  pointer-events: none;
++}
++
++/* ==========================================
++   PHASE BANNER — top center
++   ========================================== */
++.phase-banner {
++  position: absolute;
++  top: 20px;
++  left: 50%;
++  transform: translateX(-50%);
++  background: rgba(0, 0, 0, 0.7);
++  backdrop-filter: blur(8px);
++  padding: 10px 30px;
++  border-radius: 12px;
++  font-size: 22px;
++  font-weight: 700;
++  text-align: center;
++  display: flex;
++  gap: 14px;
++  align-items: center;
++  border: 1px solid rgba(255, 255, 255, 0.15);
++  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
++  white-space: nowrap;
++}
++
++.game-title {
++  font-size: 14px;
++  font-weight: 800;
++  letter-spacing: 2px;
++  color: #ffd700;
++  padding-right: 14px;
++  border-right: 1px solid rgba(255, 255, 255, 0.25);
++}
++
++#phaseTimer {
++  font-variant-numeric: tabular-nums;
++  color: #ffd700;
++  min-width: 56px;
++}
++
++.phase-banner.countdown {
++  animation: pulse 1s ease-in-out infinite;
++}
++
++@keyframes pulse {
++  0%,
++  100% {
++    transform: translateX(-50%) scale(1);
++  }
++  50% {
++    transform: translateX(-50%) scale(1.05);
++  }
++}
++
++/* ==========================================
++   SIDE CARDS — one per side, counter on top
++   ========================================== */
++#sideCards {
++  position: absolute;
++  top: 90px;
++  left: 30px;
++  right: 30px;
++  display: flex;
++  justify-content: space-between;
++  align-items: flex-start;
++}
++
++.side-card {
++  --side-color: #888;
++  width: 430px;
++  background: rgba(0, 0, 0, 0.72);
++  backdrop-filter: blur(8px);
++  border-radius: 18px;
++  border-top: 8px solid var(--side-color);
++  padding: 16px 22px 18px;
++  display: flex;
++  flex-direction: column;
++  gap: 8px;
++  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
++  transition:
++    box-shadow 0.4s ease,
++    transform 0.4s ease;
++}
++
++/* Side currently ahead gets a glow */
++.side-card.leading {
++  box-shadow:
++    0 0 0 2px var(--side-color),
++    0 0 34px var(--side-color);
++  transform: translateY(-4px);
++}
++
++.side-head {
++  display: flex;
++  align-items: center;
++  gap: 14px;
++}
++
++.side-avatar {
++  width: 64px;
++  height: 64px;
++  border-radius: 50%;
++  background: var(--side-color);
++  border: 3px solid #fff;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  font-size: 32px;
++  font-weight: 800;
++  overflow: hidden;
++  flex-shrink: 0;
++}
++
++.side-avatar img {
++  width: 100%;
++  height: 100%;
++  object-fit: cover;
++}
++
++.side-name {
++  font-size: 30px;
++  font-weight: 800;
++  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
++  white-space: nowrap;
++  overflow: hidden;
++  text-overflow: ellipsis;
++}
++
++/* The big counter */
++.side-score {
++  font-size: 104px;
++  font-weight: 900;
++  line-height: 1;
++  text-align: center;
++  font-variant-numeric: tabular-nums;
++  color: #fff;
++  text-shadow:
++    0 0 24px var(--side-color),
++    0 4px 10px rgba(0, 0, 0, 0.6);
++}
++
++.side-score.bump {
++  animation: bump 0.25s ease;
++}
++
++@keyframes bump {
++  0% {
++    transform: scale(1);
++  }
++  40% {
++    transform: scale(1.12);
++  }
++  100% {
++    transform: scale(1);
++  }
++}
++
++.side-meta {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  font-size: 18px;
++  font-weight: 700;
++  color: rgba(255, 255, 255, 0.85);
++}
++
++.side-meta .side-share {
++  color: var(--side-color);
++  filter: brightness(1.5);
++  font-size: 22px;
++}
++
++.side-gifts {
++  display: flex;
++  justify-content: space-between;
++  gap: 6px;
++  padding-top: 8px;
++  border-top: 1px solid rgba(255, 255, 255, 0.15);
++}
++
++.gift-chip {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  font-size: 34px;
++  line-height: 1.1;
++  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
++}
++
++.gift-chip small {
++  font-size: 13px;
++  font-weight: 700;
++  color: #ffd700;
++}
++
++.side-vote {
++  font-size: 13px;
++  font-weight: 600;
++  text-align: center;
++  color: rgba(255, 255, 255, 0.6);
++}
++
++/* ==========================================
++   EVENT FEED — bottom center
++   ========================================== */
++#eventFeed {
++  position: absolute;
++  bottom: 24px;
++  left: 50%;
++  transform: translateX(-50%);
++  width: 440px;
++  max-height: 230px;
++  overflow: hidden;
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++}
++
++.feed-item {
++  background: rgba(0, 0, 0, 0.62);
++  backdrop-filter: blur(4px);
++  padding: 6px 12px;
++  border-radius: 8px;
++  border-left: 4px solid #ffd700;
++  font-size: 14px;
++  animation: fadeIn 0.3s ease;
++  white-space: nowrap;
++  overflow: hidden;
++  text-overflow: ellipsis;
++}
++
++.feed-item.chat {
++  border-left-color: #4af;
++}
++
++@keyframes fadeIn {
++  from {
++    opacity: 0;
++    transform: translateY(10px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++/* ==========================================
++   RESULT OVERLAY
++   ========================================== */
++.winner-overlay {
++  position: absolute;
++  top: 0;
++  left: 0;
++  width: 100%;
++  height: 100%;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  background: rgba(0, 0, 0, 0.55);
++  backdrop-filter: blur(4px);
++  animation: fadeInPlain 0.5s ease;
++}
++
++.winner-overlay.hidden {
++  display: none;
++}
++
++.winner-content {
++  text-align: center;
++  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
++}
++
++.winner-badge {
++  width: 150px;
++  height: 150px;
++  margin: 0 auto 16px;
++  border-radius: 50%;
++  border: 6px solid #fff;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  font-size: 80px;
++  font-weight: 900;
++  overflow: hidden;
++  box-shadow: 0 0 50px rgba(255, 255, 255, 0.35);
++}
++
++.winner-badge img {
++  width: 100%;
++  height: 100%;
++  object-fit: cover;
++}
++
++.winner-name {
++  font-size: 54px;
++  font-weight: 900;
++  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
++  margin-bottom: 8px;
++}
++
++.winner-score {
++  font-size: 30px;
++  font-weight: 700;
++  margin-bottom: 10px;
++  font-variant-numeric: tabular-nums;
++}
++
++.winner-supporters {
++  font-size: 20px;
++  opacity: 0.85;
++}
++
++@keyframes fadeInPlain {
++  from {
++    opacity: 0;
++  }
++  to {
++    opacity: 1;
++  }
++}
++
++@keyframes popIn {
++  from {
++    transform: scale(0.5);
++    opacity: 0;
++  }
++  to {
++    transform: scale(1);
++    opacity: 1;
++  }
++}
+diff --git a/public/index.html b/public/index.html
+index 3279460..9879873 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -90,6 +90,22 @@
+               </p>
+             </div>
+ 
++            <!-- Flavio vs Lula Game Card -->
++            <div
++              class="game-card"
++              data-game="flavio-vs-lula"
++              data-entry="index.html"
++              data-param="id"
++            >
++              <span class="game-card-badge">NEW</span>
++              <div class="game-card-icon">⚔️</div>
++              <h3 class="game-card-title">Flávio x Lula</h3>
++              <p class="game-card-desc">
++                Duelo de presentes! Cada lado tem seus presentes e um contador de pontos. Quem
++                somar mais na rodada vence!
++              </p>
++            </div>
++
+             <!-- Future Expansion Placeholder -->
+             <div class="game-card" style="opacity: 0.5; cursor: not-allowed">
+               <div class="game-card-icon">🎰</div>

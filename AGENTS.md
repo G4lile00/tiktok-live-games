@@ -20,7 +20,8 @@ public/
 ├── js/dashboard.js        # Game selection, URL generation, clipboard
 ├── lib/tiktok-bridge.js   # Client SDK: Socket.io → game event bridge
 └── games/
-    └── horse-racing/      # Canvas + DOM — gift-powered horse race (5 lanes)
+    ├── horse-racing/      # Canvas + DOM — gift-powered horse race (5 lanes)
+    └── flavio-vs-lula/    # Canvas + DOM — 2-sided gift duel, live score counters (pt-BR)
 ```
 
 ## Tech Stack

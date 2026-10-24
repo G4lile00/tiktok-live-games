@@ -27,6 +27,17 @@ Gift-powered horse race with 5 country lanes. Viewers send gifts to move their c
 - **Supporter Tracking**: Top 3 contributors shown on winner overlay
 - **Canvas 2D + DOM HUD**: Progress bars, event feed, phase banners, winner celebration
 
+### Flávio x Lula ⚔️
+
+Gift duel between two sides, with a live score counter on top of each one. Gifts mapped to a side give it points; the side with more points when the round ends wins.
+
+- **2 Sides**: 🔵 Flávio Bolsonaro, 🔴 Lula (names, colors and optional photo in `config.js`)
+- **Gift → Side Mapping**: 4 gift tiers (1, 5, 10, 99 coins), one gift per side in each tier — both sides always have equally priced gifts. Gifts outside the map are ignored
+- **Scoring**: points = gift diamonds × `pointsPerDiamond` (default 1). Optional chat votes (`chatPoints`) and early-win `targetScore`
+- **Rounds**: Waiting → Countdown (10s) → Playing (3 min) → Finished → Cooldown, then scores reset. Rounds won are kept on screen; ties are supported
+- **Canvas 2D + DOM HUD**: Big counters, tug bar with live percentage, floating `+points`, event feed, result screen with top 3 supporters
+- **Language**: overlay texts are pt-BR and editable in `config.js` (`labels`)
+
 ## Quick Start
 
 ### Prerequisites
@@ -77,11 +88,17 @@ tiktok-live-games/
 │   ├── js/dashboard.js                   # Game selection & URL generation
 │   ├── lib/tiktok-bridge.js              # Client SDK: Socket.io → game event bridge
 │   └── games/
-│       └── horse-racing/                 # Canvas + DOM horse race game
+│       ├── horse-racing/                 # Canvas + DOM horse race game
+│       │   ├── index.html                # Overlay entry point
+│       │   ├── game.js                   # Canvas renderer + bridge wiring
+│       │   ├── race-engine.js            # Pure race state machine
+│       │   ├── config.js                 # Lanes, gift tiers, gift→lane mapping
+│       │   └── style.css                 # OBS overlay styles
+│       └── flavio-vs-lula/               # Canvas + DOM two-sided gift duel
 │           ├── index.html                # Overlay entry point
 │           ├── game.js                   # Canvas renderer + bridge wiring
-│           ├── race-engine.js            # Pure race state machine
-│           ├── config.js                 # Lanes, gift tiers, gift→lane mapping
+│           ├── duel-engine.js            # Pure duel state machine
+│           ├── config.js                 # Sides, gift tiers, gift→side mapping, texts
 │           └── style.css                 # OBS overlay styles
 └── package.json
 ```
