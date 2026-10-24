@@ -32,9 +32,9 @@ const CONFIG = {
 			color: "#1f6bff",
 			/** Optional image URL for the avatar. Empty = show the initial letter. */
 			photo: "img/Bolsonaro.jpg",
-			startScore: 12,   // <- começa com 10
+			startScore: 12,   // <- começa com 12
 			/** Chat words that vote for this side (accents/case are ignored). */
-			aliases: ["1", "flavio", "flavio bolsonaro", "bolsonaro", "22", "pl"],
+			aliases: ["flavio", "flavio bolsonaro", "bolsonaro", "22", "pl"],
 		},
 		{
 			id: 1,
@@ -44,7 +44,7 @@ const CONFIG = {
 			color: "#e5222f",
 			photo: "img/Lula.jpeg",
 			startScore: 25,   // <- começa com 10
-			aliases: ["2", "lula", "pt", "13"],
+			aliases: ["lula", "pt", "13", "painho"],
 		},
 	],
 
@@ -132,7 +132,7 @@ const CONFIG = {
 	 * Chat votes (`chatPoints`) are NOT affected. The result is rounded to an integer
 	 * (minimum 1 point while the multiplier is above 0).
 	 */
-	giftMultiplier: 1,
+	giftMultiplier: 5,
 
 	/**
 	 * Gifts that are NOT in `giftTiers`:
