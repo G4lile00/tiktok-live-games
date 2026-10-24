@@ -32,7 +32,7 @@ const CONFIG = {
 			photo: "img/Bolsonaro.jpg",
 			startScore: 12,   // <- começa com 10
 			/** Chat words that vote for this side (accents/case are ignored). */
-			aliases: ["1", "flavio", "flavio bolsonaro", "bolsonaro"],
+			aliases: ["1", "flavio", "flavio bolsonaro", "bolsonaro", "22", "pl"],
 		},
 		{
 			id: 1,
@@ -41,7 +41,7 @@ const CONFIG = {
 			color: "#e5222f",
 			photo: "img/Lula.jpeg",
 			startScore: 25,   // <- começa com 10
-			aliases: ["2", "lula", "pt"],
+			aliases: ["2", "lula", "pt", "13"],
 		},
 	],
 
@@ -113,7 +113,7 @@ const CONFIG = {
 	countUnmappedGifts: false,
 
 	/** Points given by a chat vote ("1", "2", "lula"...). 0 = chat does not score. */
-	chatPoints: 0,
+	chatPoints: 1,
 
 	/** Optional: first side to reach this score wins the round early. null = off. */
 	targetScore: null,

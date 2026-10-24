@@ -42,12 +42,36 @@
 	}
 	window.addEventListener("resize", resize);
 	resize();
+// ==========================================
+// BRIDGE → ENGINE WIRING
+// ==========================================
 
-	// ==========================================
-	// BRIDGE → ENGINE WIRING
-	// ==========================================
-	TikTokBridge.on("gift", (data) => engine.handleGift(data));
-	TikTokBridge.on("chat", (data) => engine.handleChat(data));
+TikTokBridge.on("gift", (data) => {
+    console.log("[DUEL] Gift recebido:", data);
+
+    const gift = {
+        giftId: Number(data.giftId ?? 0),
+        giftName: data.giftName ?? data.gift?.name ?? "",
+        giftValue: Number(
+            data.giftValue ??
+            data.gift?.diamondCount ??
+            0
+        ),
+        repeatCount: Number(data.repeatCount ?? 1),
+        user: {
+            uniqueId: data.user?.uniqueId ?? "anonymous",
+            nickname: data.user?.nickname ?? "Anônimo",
+        },
+    };
+
+    console.log("[DUEL] Gift normalizado:", gift);
+
+    engine.handleGift(gift);
+});
+TikTokBridge.on("chat", (data) => {
+    console.log("[DUEL] Chat recebido:", data);
+    engine.handleChat(data);
+});
 
 	// ==========================================
 	// ANIMATION STATE (purely visual)

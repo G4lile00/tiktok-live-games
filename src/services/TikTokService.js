@@ -10,7 +10,9 @@
  * @module services/TikTokService
  */
 
-import { WebcastPushConnection } from "tiktok-live-connector";
+// tiktok-live-connector v2.x: the class is TikTokLiveConnection (v1 was WebcastPushConnection).
+// Namespace import works whether the package ships ESM or CJS.
+import * as TikTokLib from "tiktok-live-connector";
 import {
 	normalizeChat,
 	normalizeGift,
@@ -18,6 +20,14 @@ import {
 	normalizeShare,
 } from "../lib/tiktokEventNormalizer.js";
 import { getDelay, shouldRetry, sleep } from "../lib/tiktokReconnectPolicy.js";
+
+const { TikTokLiveConnection } = { ...TikTokLib, ...(TikTokLib.default ?? {}) };
+
+/**
+ * Optional Euler Stream API key (raises the signing rate limits).
+ * Set it in the environment before starting: EULER_API_KEY=xxxx npm start
+ */
+const SIGN_API_KEY = process.env.EULER_API_KEY || undefined;
 
 class TikTokService {
 	constructor() {
@@ -29,7 +39,7 @@ class TikTokService {
 
 		/**
 		 * Map storing active TikTok connections
-		 * @type {Map<string, {connection: WebcastPushConnection, lastActivity: number}>}
+		 * @type {Map<string, {connection: TikTokLiveConnection, lastActivity: number}>}
 		 */
 		this.connections = new Map();
 
@@ -74,13 +84,14 @@ class TikTokService {
 		console.log(`[TikTokService] Creating new connection for: ${username}`);
 
 		try {
-			// Create new TikTok Live connection
-			const connection = new WebcastPushConnection(username, {
-				processInitialData: true,
-				enableExtendedGiftInfo: true,
-				enableWebsocketUpgrade: true,
-				requestPollingIntervalMs: 2000,
-				sessionId: null,
+			// Create new TikTok Live connection (v2 API)
+			const connection = new TikTokLiveConnection(username, {
+				// false: don't replay recent chat/gifts on (re)connect, otherwise
+				// old gifts would be scored again every time the connection restarts
+				processInitialData: false,
+				// false: skips the extra gift-catalog request (fewer requests = fewer 429s)
+				enableExtendedGiftInfo: false,
+				signApiKey: SIGN_API_KEY,
 			});
 
 			// Store in Map
@@ -98,12 +109,17 @@ class TikTokService {
 			// ==========================================
 
 			/** Handle Chat Messages */
-			connection.on("chat", (data) => {
-				this.updateActivity(username);
-				const payload = normalizeChat(data);
-				io.to(username).emit("tiktok_chat", payload);
-			});
+		connection.on("chat", (data) => {
+    	this.updateActivity(username);
 
+    	const payload = normalizeChat(data);
+
+    	io.to(username).emit("tiktok_chat", payload);
+
+    	console.log(
+        `[${username}] Chat: ${payload.user?.nickname || "Unknown User"}: ${payload.comment}`
+    	);
+		});
 			/** Handle Like Events */
 			connection.on("like", (data) => {
 				this.updateActivity(username);
@@ -114,26 +130,39 @@ class TikTokService {
 				);
 			});
 
-			/** Handle Share Events */
-			connection.on("social", (data) => {
-				if (data.displayType === "pm_mt_msg_viewer_share") {
-					this.updateActivity(username);
-					const payload = normalizeShare(data);
-					io.to(username).emit("tiktok_share", payload);
-					console.log(`[${username}] Share from ${payload.user.nickname}`);
-				}
+			/** Handle Share Events (v2 derives a dedicated "share" event from "social") */
+			connection.on("share", (data) => {
+				this.updateActivity(username);
+				const payload = normalizeShare(data);
+				io.to(username).emit("tiktok_share", payload);
+				console.log(`[${username}] Share from ${payload.user.nickname}`);
 			});
 
 			/** Handle Gift Events — single canonical emit, no legacy duplication */
-			connection.on("gift", (data) => {
-				this.updateActivity(username);
-				const payload = normalizeGift(data);
-				io.to(username).emit("tiktok_gift", payload);
-				console.log(
-					`[${username}] Gift: ${payload.giftName} x${payload.repeatCount} (${payload.giftType}, ${payload.giftValue}💎)`,
-				);
-			});
 
+						/** Handle Gift Events — single canonical emit, no legacy duplication */
+connection.on("gift", (data) => {
+    const rawGiftType =
+        data.gift?.type ??
+        data.giftDetails?.giftType ??
+        data.giftType;
+
+    // Presentes de combo: processa somente o evento final.
+    if (Number(rawGiftType) === 1 && !Number(data.repeatEnd)) {
+        return;
+    }
+
+    this.updateActivity(username);
+
+    const payload = normalizeGift(data);
+
+    io.to(username).emit("tiktok_gift", payload);
+
+    console.log(
+        `[${username}] Gift: ${payload.giftName} x${payload.repeatCount} ` +
+        `(${payload.giftType}, ${payload.giftValue}💎)`
+    );
+});
 			// ==========================================
 			// CONNECTION STATUS HANDLERS
 			// ==========================================
@@ -159,10 +188,13 @@ class TikTokService {
 				}
 			});
 
+			// v2 delivers errors as { info, exception }
 			connection.on("error", (err) => {
-				console.error(`[TikTokService] Error for ${username}:`, err.message);
+				const message =
+					err?.exception?.message || err?.info || err?.message || "Unknown error";
+				console.error(`[TikTokService] Error for ${username}:`, message);
 				io.to(username).emit("tiktok_error", {
-					message: err.message,
+					message,
 					timestamp: Date.now(),
 				});
 			});

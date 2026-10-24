@@ -127,7 +127,12 @@ class DuelEngine {
 
 		const { phase } = this.state;
 		if (phase === "countdown" || phase === "playing") {
-			const points = this.config.giftToPoints(data.giftValue);
+			const repeatCount = Math.max(
+    1,
+    Number(data.repeatCount) || 1
+);
+
+const points = this.config.giftToPoints(data.giftValue) * repeatCount;
 			this._addScore(sideIdx, points, data.user, {
 				giftName: data.giftName,
 				giftEmoji: this.config.getGiftEmoji(data.giftName),
@@ -141,35 +146,60 @@ class DuelEngine {
 	 * Process a chat event. Chat votes only score when config.chatPoints > 0.
 	 * @param {{user: {uniqueId: string, nickname: string}, comment: string}} data
 	 */
-	handleChat(data) {
-		const points = this.config.chatPoints || 0;
-		if (points <= 0) {
-			if (this.config.showChatInFeed) {
-				this._addRecentEvent({
-					type: "chat",
-					nickname: data.user.nickname,
-					text: data.comment || "",
-				});
-			}
-			return;
-		}
+handleChat(data) {
+    const comment = String(data?.comment ?? "").trim();
+    const user = data?.user;
 
-		const sideIdx = this.config.chatToSide(data.comment);
-		if (sideIdx < 0) return;
+    console.log("[CHAT] Dados recebidos:", data);
+    console.log("[CHAT] Comentário:", comment);
+    console.log("[CHAT] Pontos configurados:", this.config.chatPoints);
 
-		if (this.state.phase === "waiting") this._setPhase("countdown");
+    const sideIdx = this.config.chatToSide(comment);
 
-		const { phase } = this.state;
-		if (phase === "countdown" || phase === "playing") {
-			this._addScore(sideIdx, points, data.user, {
-				giftName: null,
-				giftEmoji: "💬",
-				isVote: true,
-			});
-			if (phase === "playing") this._checkTarget();
-		}
-	}
+    console.log("[CHAT] Lado identificado:", sideIdx);
 
+    if (sideIdx < 0 || sideIdx >= this.state.sides.length) {
+        console.log("[CHAT] Voto não reconhecido:", comment);
+        return;
+    }
+
+    const points = Number(this.config.chatPoints) || 0;
+
+    if (points <= 0) {
+        console.log("[CHAT] chatPoints é zero.");
+        return;
+    }
+
+    if (this.state.phase === "waiting") {
+        this._setPhase("countdown");
+    }
+
+    const { phase } = this.state;
+
+    if (phase !== "countdown" && phase !== "playing") {
+        console.log("[CHAT] Fase não permite pontuar:", phase);
+        return;
+    }
+
+    this._addScore(sideIdx, points, user, {
+        giftName: null,
+        giftEmoji: "💬",
+        isVote: true,
+    });
+
+    console.log("[CHAT] Pontuação adicionada:", {
+        lado: this.state.sides[sideIdx].name,
+        pontos: points,
+        placar: this.state.sides.map(side => ({
+            name: side.name,
+            score: side.score,
+        })),
+    });
+
+    if (phase === "playing") {
+        this._checkTarget();
+    }
+}
 	// ==========================================
 	// INTERNAL
 	// ==========================================
