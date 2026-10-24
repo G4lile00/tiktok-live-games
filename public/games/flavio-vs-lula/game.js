@@ -1,8 +1,9 @@
 /**
  * game.js
  * Flavio vs Lula — Canvas renderer + TikTokBridge wiring.
- * Reads state from DuelEngine, draws the tug bar + floating points on Canvas,
- * updates DOM HUD elements (score counters, gift legend, event feed, result).
+ * Reads state from DuelEngine, draws the floating points on Canvas and updates
+ * the DOM HUD: scoreboard cards, urnas (voting machines) with the typing hand,
+ * event feed and result screen.
  *
  * @module games/flavio-vs-lula/game
  */
@@ -24,6 +25,12 @@
 	const phaseText = document.getElementById("phaseText");
 	const phaseTimer = document.getElementById("phaseTimer");
 	const sideCardsDiv = document.getElementById("sideCards");
+	const urnsDiv = document.getElementById("urns");
+	const totalLabel = document.getElementById("totalLabel");
+	const totalScoreEl = document.getElementById("totalScore");
+	const diffLabel = document.getElementById("diffLabel");
+	const diffScoreEl = document.getElementById("diffScore");
+	const leaderPill = document.getElementById("leaderPill");
 	const eventFeedDiv = document.getElementById("eventFeed");
 	const winnerOverlay = document.getElementById("winnerOverlay");
 	const winnerBadge = document.getElementById("winnerBadge");
@@ -32,6 +39,8 @@
 	const winnerSupporters = document.getElementById("winnerSupporters");
 
 	gameTitle.textContent = L.title;
+	totalLabel.textContent = L.total;
+	diffLabel.textContent = L.diff;
 
 	// ==========================================
 	// CANVAS SIZING
@@ -83,8 +92,21 @@ TikTokBridge.on("chat", (data) => {
 	/** Floating "+N" popups drawn on the canvas */
 	const popups = [];
 
+	/** Gifts counted per side in the current round (shown as "N presentes") */
+	const presents = config.sides.map(() => 0);
+
+	/** Escape text that goes into innerHTML (names come from config, but be safe). */
+	function esc(str) {
+		return String(str ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+	}
+
+	/** Candidate number typed on the urna (falls back to side position). */
+	function sideNumber(side) {
+		return String(side.number ?? side.id + 1);
+	}
+
 	// ==========================================
-	// BUILD SIDE CARDS (counter on top of each side)
+	// BUILD SIDE CARDS (scoreboard on top of each side)
 	// ==========================================
 	function buildSideCards() {
 		sideCardsDiv.innerHTML = "";
@@ -95,8 +117,8 @@ TikTokBridge.on("chat", (data) => {
 			el.style.setProperty("--side-color", side.color);
 
 			const avatar = side.photo
-				? `<img src="${side.photo}" alt="" />`
-				: side.short.charAt(0).toUpperCase();
+				? `<img src="${esc(side.photo)}" alt="" />`
+				: esc(side.short.charAt(0).toUpperCase());
 
 			const gifts = config
 				.getSideGifts(side.id)
@@ -104,53 +126,240 @@ TikTokBridge.on("chat", (data) => {
 				.join("");
 
 			el.innerHTML =
-				`<div class="side-head">` +
+				`<div class="side-top">` +
+				`<span class="side-number">${esc(sideNumber(side))}</span>` +
+				`<span class="lead-badge">${esc(L.leading)}</span>` +
+				`<span class="side-name">${esc(side.name)}</span>` +
 				`<div class="side-avatar">${avatar}</div>` +
-				`<div class="side-name">${side.name}</div>` +
 				`</div>` +
 				`<div class="side-score" id="score-${side.id}">0</div>` +
-				`<div class="side-meta">` +
+				`<div class="side-label">${esc(L.scoreLabel)}</div>` +
+				`<div class="side-bar"><i id="bar-${side.id}"></i></div>` +
+				`<div class="side-foot">` +
 				`<span class="side-share" id="share-${side.id}">50%</span>` +
-				`<span class="side-rounds" id="rounds-${side.id}">${L.rounds}: 0</span>` +
+				`<span class="side-rounds" id="rounds-${side.id}">${esc(L.rounds)}: 0</span>` +
+				`<span class="side-presents">🎁 <span id="presents-${side.id}">0</span> ${esc(L.presents)}</span>` +
 				`</div>` +
-				`<div class="side-gifts">${gifts}</div>` +
+				`<div class="side-gifts">${gifts}` +
 				(config.chatPoints > 0
-					? `<div class="side-vote">${L.voteHint(side.id + 1)}</div>`
-					: "");
+					? `<span class="side-vote">${esc(L.voteHint(sideNumber(side)))}</span>`
+					: "") +
+				`</div>`;
 			sideCardsDiv.appendChild(el);
 		});
 	}
 	buildSideCards();
 
-	// Popup on every score event
+	// ==========================================
+	// URNAS (voting machines) — the hand types the candidate number on every
+	// score event, then confirms: "FIM · CONFIRMADO · +N ponto(s)".
+	// ==========================================
+	const HAND_SVG =
+		`<svg viewBox="0 0 60 130" xmlns="http://www.w3.org/2000/svg">` +
+		`<rect class="sleeve" x="6" y="80" width="48" height="60" rx="6" fill="var(--side-color)"/>` +
+		`<rect x="6" y="80" width="48" height="5" fill="rgba(255,255,255,0.35)"/>` +
+		`<rect x="8" y="38" width="44" height="46" rx="16" fill="#f2b48c" stroke="#d99a70" stroke-width="1.2"/>` +
+		`<rect x="31" y="34" width="10" height="22" rx="5" fill="#f2b48c" stroke="#d99a70" stroke-width="1.2"/>` +
+		`<rect x="40" y="38" width="10" height="22" rx="5" fill="#f2b48c" stroke="#d99a70" stroke-width="1.2"/>` +
+		`<ellipse cx="9" cy="60" rx="6.5" ry="11" transform="rotate(-18 9 60)" fill="#f2b48c" stroke="#d99a70" stroke-width="1.2"/>` +
+		`<rect x="16" y="2" width="15" height="58" rx="7.5" fill="#f5bc96" stroke="#d99a70" stroke-width="1.2"/>` +
+		`</svg>`;
+	/** Fingertip position inside the hand SVG (fraction of width / height). */
+	const TIP_X = 23.5 / 60;
+	const TIP_Y = 4 / 130;
+
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+	/** @type {{el:HTMLElement,hand:HTMLElement,keys:Object,confirmBtn:HTMLElement,digitEls:HTMLElement[],endSub:HTMLElement,keypad:HTMLElement,number:string,queue:number[],busy:boolean}[]} */
+	const urns = [];
+
+	function buildUrns() {
+		urnsDiv.innerHTML = "";
+		urns.length = 0;
+		config.sides.forEach((side) => {
+			const number = sideNumber(side);
+			const el = document.createElement("div");
+			el.className = "urn";
+			el.dataset.state = "idle";
+			el.style.setProperty("--side-color", side.color);
+
+			const digits = number
+				.split("")
+				.map(() => `<div class="vs-digit"></div>`)
+				.join("");
+			const keys = "1234567890"
+				.split("")
+				.map((k) => `<div class="key" data-key="${k}">${k}</div>`)
+				.join("");
+			const photo = side.photo ? `<img src="${esc(side.photo)}" alt="" />` : "";
+
+			el.innerHTML =
+				`<div class="urn-top"></div>` +
+				`<div class="urn-body">` +
+				`<div class="urn-brand">${esc(L.urnBrand)}</div>` +
+				`<div class="urn-screen"><div class="urn-screen-inner">` +
+				`<div class="vote-screen">` +
+				`<div class="vs-head">${esc(L.voteFor)}</div>` +
+				`<div class="vs-digits">${digits}</div>` +
+				`<div class="vs-num">${esc(L.numberHint)}</div>` +
+				`<div class="cand">${photo}<b>${esc(number)}</b></div>` +
+				`<div class="vs-foot">${esc(L.confirmHint)}</div>` +
+				`</div>` +
+				`<div class="end-screen"><div class="end-title">${esc(L.end)}</div><div class="end-sub"></div></div>` +
+				`</div></div>` +
+				`<div class="urn-keypad">` +
+				`<div class="keys">${keys}</div>` +
+				`<div class="keys-actions">` +
+				`<div class="act blank">${esc(L.btnBlank)}</div>` +
+				`<div class="act fix">${esc(L.btnFix)}</div>` +
+				`<div class="act confirm">${esc(L.btnConfirm)}</div>` +
+				`</div></div>` +
+				`</div>` +
+				`<div class="urn-hand">${HAND_SVG}</div>`;
+			urnsDiv.appendChild(el);
+
+			const keyEls = {};
+			el.querySelectorAll(".key").forEach((k) => (keyEls[k.dataset.key] = k));
+			urns.push({
+				el,
+				hand: el.querySelector(".urn-hand"),
+				keys: keyEls,
+				confirmBtn: el.querySelector(".act.confirm"),
+				digitEls: Array.from(el.querySelectorAll(".vs-digit")),
+				endSub: el.querySelector(".end-sub"),
+				keypad: el.querySelector(".urn-keypad"),
+				number,
+				queue: [],
+				busy: false,
+			});
+		});
+		urns.forEach((u) => moveHand(u, null));
+	}
+
+	/** Move the fingertip over `target` (an element inside the urn) or to the rest spot. */
+	function moveHand(u, target) {
+		const ur = u.el.getBoundingClientRect();
+		const hw = u.hand.offsetWidth;
+		const hh = u.hand.offsetHeight;
+		let cx;
+		let cy;
+		if (target) {
+			const tr = target.getBoundingClientRect();
+			cx = tr.left + tr.width / 2 - ur.left;
+			cy = tr.top + tr.height * 0.55 - ur.top;
+		} else {
+			const kr = u.keypad.getBoundingClientRect();
+			cx = kr.right - ur.left - hw * 0.15;
+			cy = ur.height * 0.92;
+		}
+		u.hand.style.left = `${cx - hw * TIP_X}px`;
+		u.hand.style.top = `${cy - hh * TIP_Y}px`;
+	}
+
+	function tap(u, el) {
+		el.classList.add("pressed");
+		u.hand.classList.add("tap");
+		setTimeout(() => {
+			el.classList.remove("pressed");
+			u.hand.classList.remove("tap");
+		}, 110);
+	}
+
+	async function playVote(u, points, speed) {
+		u.el.dataset.state = "typing";
+		u.digitEls.forEach((d) => (d.textContent = ""));
+		for (let i = 0; i < u.number.length; i++) {
+			const ch = u.number[i];
+			const key = u.keys[ch];
+			if (key) {
+				moveHand(u, key);
+				await sleep(150 * speed);
+				tap(u, key);
+			}
+			if (u.digitEls[i]) u.digitEls[i].textContent = ch;
+			await sleep(170 * speed);
+		}
+		moveHand(u, u.confirmBtn);
+		await sleep(150 * speed);
+		tap(u, u.confirmBtn);
+		u.el.dataset.state = "confirm";
+		await sleep(260 * speed);
+		u.endSub.textContent = `${L.confirmed} · +${points} ${L.pointWord(points)}`;
+		u.el.dataset.state = "done";
+		await sleep(520 * speed);
+	}
+
+	async function runUrn(u) {
+		if (u.busy) return;
+		u.busy = true;
+		try {
+			while (u.queue.length) {
+				const points = u.queue.shift();
+				// Many gifts at once: play faster instead of falling behind
+				const speed = u.queue.length > 3 ? 0.4 : u.queue.length > 1 ? 0.7 : 1;
+				await playVote(u, points, speed);
+			}
+		} finally {
+			u.el.dataset.state = "idle";
+			u.digitEls.forEach((d) => (d.textContent = ""));
+			moveHand(u, null);
+			u.busy = false;
+		}
+	}
+
+	/** Queue one vote animation (the score itself is already counted by the engine). */
+	function enqueueVote(sideIdx, points) {
+		const u = urns[sideIdx];
+		if (!u) return;
+		u.queue.push(points);
+		if (u.queue.length > 8) u.queue.shift(); // purely visual: never lag far behind
+		runUrn(u);
+	}
+
+	buildUrns();
+	window.addEventListener("resize", () => urns.forEach((u) => !u.busy && moveHand(u, null)));
+
+	// Every score event: popup + counter bump + urna typing
 	engine.on("scoreAdd", ({ sideIdx, points, side }) => {
-		const W = canvas.width;
-		const jitter = (Math.random() - 0.5) * 120;
+		const scoreEl = document.getElementById(`score-${sideIdx}`);
+		const rect = scoreEl
+			? scoreEl.getBoundingClientRect()
+			: { left: sideIdx === 0 ? 200 : canvas.width - 400, width: 200, top: canvas.height * 0.3, height: 100 };
+		const jitter = (Math.random() - 0.5) * rect.width * 0.5;
 		popups.push({
-			x: (sideIdx === 0 ? 245 : W - 245) + jitter,
-			y: canvas.height * 0.72 - 30,
-			vy: -1.4 - Math.random() * 0.8,
+			x: rect.left + rect.width / 2 + jitter,
+			y: rect.top + rect.height * 0.55,
+			size: Math.max(16, rect.height * 0.2),
+			vy: -0.8 - Math.random() * 0.6,
 			text: `+${points}`,
 			color: side.color,
 			life: 1,
 		});
 
+		// Gifts counter ("N presentes"); chat votes only animate the urna
+		if (engine.state.recentEvents[0]?.type === "gift") presents[sideIdx]++;
+
 		// Bump the counter
-		const scoreEl = document.getElementById(`score-${sideIdx}`);
 		if (scoreEl) {
 			scoreEl.classList.remove("bump");
 			void scoreEl.offsetWidth; // restart CSS animation
 			scoreEl.classList.add("bump");
 		}
+
+		enqueueVote(sideIdx, points);
 	});
 
 	// Rebuild cards when a new round starts (keeps DOM clean)
+let prevPhase = null;
 engine.on("phaseChange", ({ phase }) => {
   if (phase === "playing") {     // <- era "waiting"
     shownScore.fill(0);
     shownShare = 0.5;
     popups.length = 0;
+    // New round (not the countdown → playing step): restart the gift counters
+    if (prevPhase !== "countdown") presents.fill(0);
   }
+  prevPhase = phase;
 });
 	// ==========================================
 	// RENDER LOOP
@@ -160,7 +369,7 @@ engine.on("phaseChange", ({ phase }) => {
 	function frame() {
 		const state = engine.tick();
 		animate(state);
-		drawScene(state);
+		drawScene();
 		updateHUD(state);
 		requestAnimationFrame(frame);
 	}
@@ -177,80 +386,10 @@ engine.on("phaseChange", ({ phase }) => {
 	// ==========================================
 	// CANVAS DRAWING
 	// ==========================================
-	function drawScene(state) {
+	function drawScene() {
 		const W = canvas.width;
 		const H = canvas.height;
 		ctx.clearRect(0, 0, W, H);
-
-		const [left, right] = state.sides;
-		const barX = W * 0.1;
-		const barW = W * 0.8;
-		const barH = 44;
-		const barY = H * 0.72;
-		const splitX = barX + barW * shownShare;
-
-		// Track background
-		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-		ctx.beginPath();
-		ctx.roundRect(barX - 8, barY - 8, barW + 16, barH + 16, 16);
-		ctx.fill();
-
-		// Side fills (clipped to the rounded bar)
-		ctx.save();
-		ctx.beginPath();
-		ctx.roundRect(barX, barY, barW, barH, 10);
-		ctx.clip();
-		ctx.fillStyle = left.color;
-		ctx.fillRect(barX, barY, splitX - barX, barH);
-		ctx.fillStyle = right.color;
-		ctx.fillRect(splitX, barY, barX + barW - splitX, barH);
-
-		// Soft highlight
-		const hl = ctx.createLinearGradient(0, barY, 0, barY + barH);
-		hl.addColorStop(0, "rgba(255,255,255,0.25)");
-		hl.addColorStop(1, "rgba(255,255,255,0)");
-		ctx.fillStyle = hl;
-		ctx.fillRect(barX, barY, barW, barH);
-		ctx.restore();
-
-		// Center reference (50%)
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-		ctx.lineWidth = 2;
-		ctx.setLineDash([6, 6]);
-		ctx.beginPath();
-		ctx.moveTo(barX + barW / 2, barY - 18);
-		ctx.lineTo(barX + barW / 2, barY + barH + 18);
-		ctx.stroke();
-		ctx.setLineDash([]);
-
-		// Marker at the split point
-		ctx.beginPath();
-		ctx.arc(splitX, barY + barH / 2, 30, 0, Math.PI * 2);
-		ctx.fillStyle = "#fff";
-		ctx.fill();
-		ctx.lineWidth = 4;
-		ctx.strokeStyle = "rgba(0,0,0,0.55)";
-		ctx.stroke();
-		ctx.fillStyle = "#111";
-		ctx.font = "900 22px sans-serif";
-		ctx.textAlign = "center";
-		ctx.textBaseline = "middle";
-		ctx.fillText("VS", splitX, barY + barH / 2 + 1);
-
-		// Percent labels above each end
-		const leftPct = Math.round(shownShare * 100);
-		ctx.font = "900 40px sans-serif";
-		ctx.textBaseline = "alphabetic";
-		ctx.lineWidth = 6;
-		ctx.strokeStyle = "rgba(0,0,0,0.65)";
-		ctx.textAlign = "left";
-		ctx.strokeText(`${leftPct}%`, barX, barY - 20);
-		ctx.fillStyle = left.color;
-		ctx.fillText(`${leftPct}%`, barX, barY - 20);
-		ctx.textAlign = "right";
-		ctx.strokeText(`${100 - leftPct}%`, barX + barW, barY - 20);
-		ctx.fillStyle = right.color;
-		ctx.fillText(`${100 - leftPct}%`, barX + barW, barY - 20);
 
 		// Floating "+N" popups
 		ctx.textAlign = "center";
@@ -263,12 +402,12 @@ engine.on("phaseChange", ({ phase }) => {
 				popups.splice(i, 1);
 				continue;
 			}
-			ctx.globalAlpha = Math.min(1, p.life * 1.5);
-			ctx.font = "900 44px sans-serif";
-			ctx.lineWidth = 7;
-			ctx.strokeStyle = "rgba(0,0,0,0.75)";
+			ctx.globalAlpha = Math.min(0.7, p.life * 1.2);
+			ctx.font = `900 ${p.size}px sans-serif`;
+			ctx.lineWidth = Math.max(3, p.size * 0.15);
+			ctx.strokeStyle = "rgba(0,0,0,0.55)";
 			ctx.strokeText(p.text, p.x, p.y);
-			ctx.fillStyle = p.color;
+			ctx.fillStyle = "#fff";
 			ctx.fillText(p.text, p.x, p.y);
 		}
 		ctx.globalAlpha = 1;
@@ -297,19 +436,37 @@ engine.on("phaseChange", ({ phase }) => {
 
 		phaseBanner.classList.toggle("countdown", state.phase === "countdown");
 
-		// Counters, shares, rounds won, leader glow
+		// Status bar: total, difference and who is ahead
 		const [a, b] = state.sides;
+		const shownTotal = shownScore[0] + shownScore[1];
+		totalScoreEl.textContent = Math.round(shownTotal).toLocaleString("pt-BR");
+		diffScoreEl.textContent = Math.round(Math.abs(shownScore[0] - shownScore[1])).toLocaleString("pt-BR");
+		if (a.score === b.score) {
+			leaderPill.style.setProperty("--side-color", "#5b6b8c");
+			leaderPill.textContent = L.tie;
+		} else {
+			const lead = a.score > b.score ? a : b;
+			leaderPill.style.setProperty("--side-color", lead.color);
+			leaderPill.textContent = `${sideNumber(lead)} ${L.leading}`;
+		}
+
+		// Counters, shares, rounds won, leader glow
 		state.sides.forEach((side, i) => {
 			const scoreEl = document.getElementById(`score-${side.id}`);
 			const shareEl = document.getElementById(`share-${side.id}`);
 			const roundsEl = document.getElementById(`rounds-${side.id}`);
 			const cardEl = document.getElementById(`side-card-${side.id}`);
+			const barEl = document.getElementById(`bar-${side.id}`);
+			const presentsEl = document.getElementById(`presents-${side.id}`);
 
 			if (scoreEl) scoreEl.textContent = Math.round(shownScore[i]).toLocaleString("pt-BR");
 			if (shareEl) {
 				const leftPct = Math.round(shownShare * 100);
-				shareEl.textContent = `${i === 0 ? leftPct : 100 - leftPct}%`;
+				const pct = i === 0 ? leftPct : 100 - leftPct;
+				shareEl.textContent = `${pct}%`;
+				if (barEl) barEl.style.width = `${pct}%`;
 			}
+			if (presentsEl) presentsEl.textContent = presents[i].toLocaleString("pt-BR");
 			if (roundsEl) roundsEl.textContent = `${L.rounds}: ${state.roundsWon[side.id]}`;
 			if (cardEl) {
 				const isLeading = a.score !== b.score && side.score > state.sides[1 - i].score;
@@ -322,7 +479,7 @@ engine.on("phaseChange", ({ phase }) => {
 		const feedKey = newest ? `${newest.timestamp}-${state.recentEvents.length}` : "";
 		if (feedKey !== lastFeedKey) {
 			lastFeedKey = feedKey;
-			renderFeed(state.recentEvents.slice(0, 8));
+			renderFeed(state.recentEvents.slice(0, 3));
 		}
 
 		// Result overlay

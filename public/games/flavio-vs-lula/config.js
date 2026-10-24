@@ -27,6 +27,8 @@ const CONFIG = {
 			id: 0,
 			name: "Bolsonaro",
 			short: "Flávio",
+			/** Candidate number typed on the voting machine (urna). */
+			number: "22",
 			color: "#1f6bff",
 			/** Optional image URL for the avatar. Empty = show the initial letter. */
 			photo: "img/Bolsonaro.jpg",
@@ -38,6 +40,7 @@ const CONFIG = {
 			id: 1,
 			name: "Lula",
 			short: "Lula",
+			number: "13",
 			color: "#e5222f",
 			photo: "img/Lula.jpeg",
 			startScore: 25,   // <- começa com 10
@@ -61,6 +64,22 @@ const CONFIG = {
 		rounds: "Rodadas",
 		voteHint: (n) => `Digite ${n} no chat`,
 		topSupporters: "Maiores apoiadores:",
+		// Scoreboard + urna (voting machine) visual
+		total: "TOTAL",
+		diff: "DIFERENÇA",
+		leading: "NA FRENTE",
+		scoreLabel: "PONTOS",
+		presents: "presentes",
+		voteFor: "SEU VOTO PARA",
+		numberHint: "número",
+		confirmHint: "CONFIRMA para confirmar",
+		end: "FIM",
+		confirmed: "CONFIRMADO",
+		pointWord: (n) => (n === 1 ? "ponto" : "pontos"),
+		btnBlank: "BRANCO",
+		btnFix: "CORRIGE",
+		btnConfirm: "CONFIRMA",
+		urnBrand: "URNA CHICKEN FLOW",
 	},
 
 	// ==========================================

@@ -7,33 +7,49 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- OBS Overlay: transparent background, canvas fills viewport -->
-
-    <!-- Tug bar + floating "+points" (Canvas) -->
+    <!-- Popups "+N" (Canvas) — drawn on top of the stage -->
     <canvas id="duelCanvas"></canvas>
 
-    <!-- HUD Overlay (DOM) -->
+    <!-- HUD Overlay (DOM). The stage keeps a 4:3 ratio and scales with the screen -->
     <div id="hud">
-      <!-- Phase Banner -->
-      <div id="phaseBanner" class="phase-banner">
-        <span id="gameTitle" class="game-title"></span>
-        <span id="phaseText"></span>
-        <span id="phaseTimer"></span>
-      </div>
+      <div id="stage">
+        <!-- Phase Banner -->
+        <div id="phaseBanner" class="phase-banner">
+          <span id="gameTitle" class="game-title"></span>
+          <span id="phaseText"></span>
+          <span id="phaseTimer"></span>
+        </div>
 
-      <!-- Side cards with the score counters (left / right) -->
-      <div id="sideCards"></div>
+        <!-- Status bar: TOTAL | DIFERENÇA | "NN NA FRENTE" -->
+        <div id="statusBar" class="status-bar">
+          <div class="stat">
+            <span id="totalLabel" class="stat-label"></span>
+            <span id="totalScore" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span id="diffLabel" class="stat-label"></span>
+            <span id="diffScore" class="stat-value">0</span>
+          </div>
+          <div id="leaderPill" class="leader-pill"></div>
+        </div>
 
-      <!-- Event Feed (bottom-center) -->
-      <div id="eventFeed"></div>
+        <!-- Score cards (left = blue, right = red) -->
+        <div id="sideCards"></div>
 
-      <!-- Result Overlay (hidden until the round ends) -->
-      <div id="winnerOverlay" class="winner-overlay hidden">
-        <div class="winner-content">
-          <div id="winnerBadge" class="winner-badge"></div>
-          <div id="winnerName" class="winner-name"></div>
-          <div id="winnerScore" class="winner-score"></div>
-          <div id="winnerSupporters" class="winner-supporters"></div>
+        <!-- Voting machines (urnas) with the typing hand -->
+        <div id="urns"></div>
+
+        <!-- Event Feed (bottom) -->
+        <div id="eventFeed"></div>
+
+        <!-- Result Overlay (hidden until the round ends) -->
+        <div id="winnerOverlay" class="winner-overlay hidden">
+          <div class="winner-content">
+            <div id="winnerBadge" class="winner-badge"></div>
+            <div id="winnerName" class="winner-name"></div>
+            <div id="winnerScore" class="winner-score"></div>
+            <div id="winnerSupporters" class="winner-supporters"></div>
+          </div>
         </div>
       </div>
     </div>
