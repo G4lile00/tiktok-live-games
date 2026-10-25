@@ -28,7 +28,7 @@ const CONFIG = {
 			name: "Bolsonaro",
 			short: "Flávio",
 			/** Candidate number typed on the voting machine (urna). */
-			number: "22/🌹",
+			number: "22 ou 🌹",
 			color: "#1f6bff",
 			/** Optional image URL for the avatar. Empty = show the initial letter. */
 			photo: "img/Bolsonaro.jpg",
@@ -40,7 +40,7 @@ const CONFIG = {
 			id: 1,
 			name: "Lula",
 			short: "Lula",
-			number: "13/🫰",
+			number: "13 ou 🫰",
 			color: "#e5222f",
 			photo: "img/Lula.jpeg",
 			startScore: 25, // <- começa com 10
