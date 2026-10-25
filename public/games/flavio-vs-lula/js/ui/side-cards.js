@@ -56,7 +56,7 @@ function cardTemplate(config, side) {
 		`<span class="side-rounds" data-role="rounds">${escapeHtml(L.rounds)}: 0</span>` +
 		`<span class="side-presents">🎁 <span data-role="presents">0</span> ${escapeHtml(L.presents)}</span>` +
 		`</div>` +
-		`<div class="side-gifts">${gifts}${voteHint}</div>`
+		`<div class="side-gifts">${voteHint}</div>`
 	);
 }
 

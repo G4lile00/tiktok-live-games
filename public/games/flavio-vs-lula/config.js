@@ -52,10 +52,10 @@ const CONFIG = {
 	// TEXTS (pt-BR) — change freely
 	// ==========================================
 	labels: {
-		title: "DUELO DE PRESENTES",
+		title: "DUELO DE PESSOAS",
 		waiting: "Mande um presente para começar!",
 		countdown: "A rodada começa em",
-		playing: "VALENDO! Mande presentes!",
+		playing: "VALENDO! COMENTE!",
 		finished: "FIM DA RODADA!",
 		cooldown: "Próxima rodada em instantes...",
 		tie: "EMPATE!",
@@ -69,7 +69,7 @@ const CONFIG = {
 		diff: "DIFERENÇA",
 		leading: "NA FRENTE",
 		scoreLabel: "PONTOS",
-		presents: "presentes",
+		presents: "premios",
 		voteFor: "SEU VOTO PARA",
 		numberHint: "número",
 		confirmHint: "CONFIRMA para confirmar",

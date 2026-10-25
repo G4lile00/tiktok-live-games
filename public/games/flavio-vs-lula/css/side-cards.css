@@ -212,6 +212,7 @@
 .side-gifts {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 1.2cqw;
   margin-top: 0.4cqw;
   padding-top: 0.5cqw;
@@ -233,8 +234,7 @@
 }
 
 .side-vote {
-  margin-left: auto;
-  font-size: 1cqw;
+  font-size: 3cqw;
   font-weight: 700;
   opacity: 0.8;
 }
