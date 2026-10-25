@@ -28,11 +28,11 @@ const CONFIG = {
 			name: "Bolsonaro",
 			short: "Flávio",
 			/** Candidate number typed on the voting machine (urna). */
-			number: "22",
+			number: "22/🌹",
 			color: "#1f6bff",
 			/** Optional image URL for the avatar. Empty = show the initial letter. */
 			photo: "img/Bolsonaro.jpg",
-			startScore: 12,   // <- começa com 12
+			startScore: 12, // <- começa com 12
 			/** Chat words that vote for this side (accents/case are ignored). */
 			aliases: ["flavio", "flavio bolsonaro", "bolsonaro", "22", "pl"],
 		},
@@ -40,10 +40,10 @@ const CONFIG = {
 			id: 1,
 			name: "Lula",
 			short: "Lula",
-			number: "13",
+			number: "13/🫰",
 			color: "#e5222f",
 			photo: "img/Lula.jpeg",
-			startScore: 25,   // <- começa com 10
+			startScore: 25, // <- começa com 10
 			aliases: ["lula", "pt", "13", "painho"],
 		},
 	],
@@ -62,7 +62,7 @@ const CONFIG = {
 		wins: "venceu a rodada!",
 		points: "pts",
 		rounds: "Rodadas",
-		voteHint: (n) => `Digite ${n} no chat`,
+		voteHint: (n) => `Digite ou mande ${n}`,
 		topSupporters: "Maiores apoiadores:",
 		// Scoreboard + urna (voting machine) visual
 		total: "TOTAL",
@@ -196,7 +196,10 @@ const CONFIG = {
 		const multiplier = this.getGiftMultiplier();
 		if (multiplier === 0) return 0;
 
-		const unitPoints = Math.max(1, Math.round((giftValue || 1) * this.pointsPerDiamond));
+		const unitPoints = Math.max(
+			1,
+			Math.round((giftValue || 1) * this.pointsPerDiamond),
+		);
 		const units = Math.max(1, Number(repeatCount) || 1);
 		return Math.max(1, Math.round(unitPoints * units * multiplier));
 	},
